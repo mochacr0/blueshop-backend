@@ -140,8 +140,7 @@ const calculateFee = async (req, res) => {
                 return response.data.data;
             })
             .catch((error) => {
-                res.status(error.response.data.code || 500);
-                throw new Error(error.response.data.message || error.message || '');
+                // throw new Error(error.response.data.message || error.message || '');
             });
 
         const leadTimeRequest = GHN_Request.get('v2/shipping-order/leadtime', {
@@ -160,12 +159,17 @@ const calculateFee = async (req, res) => {
                 throw new Error(error.response.data.message || error.message || '');
             });
         const [feeResult, leadTimeResult] = await Promise.all([calculateFeeRequest, leadTimeRequest]);
-        result.fee = feeResult.total;
-        result.leadTime = leadTimeResult.leadtime * 1000;
-        deliveryServices.push(result);
+        if (feeResult != null && leadTimeResult != null) {
+            result.fee = feeResult.total;
+            result.leadTime = leadTimeResult.leadtime * 1000;
+            deliveryServices.push(result);
+        }
     });
     await Promise.all(getService);
-
+    if (deliveryServices.length == 0) {
+        res.status(503);
+        throw new Error('There are no available services');
+    }
     res.status(200).json({ message: 'Success', data: { deliveryServices } });
 };
 
