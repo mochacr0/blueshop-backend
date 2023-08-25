@@ -919,11 +919,11 @@ const refundTrans = async (req, res) => {
     //Create payment information with momo
     // const requestBody = createRefundTransBody(orderId, order.paymentInformation.requestId);
     const requestBody = createRefundTransBody(
-        order._id,
-        '25302',
-        'tests',
+        uuidv4(),
+        order.paymentInformation.paymentAmount,
+        'Hoàn tiền qua ví Momo',
         order.paymentInformation.requestId,
-        '2976716175',
+        order.paymentInformation.transId,
     );
     const config = {
         headers: {

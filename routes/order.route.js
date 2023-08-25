@@ -13,7 +13,7 @@ orderRouter.get(
     asyncHandler(orderController.getOrdersByUserId),
 );
 orderRouter.get('/:id/payment-status', protect, asyncHandler(orderController.getOrderPaymentStatus));
-orderRouter.get('/:id/refund', protect, asyncHandler(orderController.refundTrans));
+orderRouter.post('/:id/refund', protect, asyncHandler(orderController.refundTrans));
 orderRouter.get('/:id', validate.validateOrderId, protect, asyncHandler(orderController.getOrderById));
 orderRouter.get('/', protect, auth('staff', 'admin'), asyncHandler(orderController.getOrders));
 // orderRouter.post('/', validate.placeOrder, protect, auth('user'), asyncHandler(orderController.placeOrder));

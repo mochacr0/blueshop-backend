@@ -72,10 +72,11 @@ export const createCheckStatusBody = (orderId, requestId) => {
     return requestBody;
 };
 export const createRefundTransBody = (orderId, amount, description, requestId, transId) => {
-    var rawSignature = `accessKey=${accessKey}&amount=${amount}&description=${description}
-    &orderId=${orderId}&partnerCode=${partnerCode}&requestId=${requestId}
-    &transId=${transId}`;
-    'accessKey=' +
+    var rawSignature =
+        // `accessKey=${accessKey}&amount=${amount}&description=${description}
+        // &orderId=${orderId}&partnerCode=${partnerCode}&requestId=${requestId}
+        // &transId=${transId}`;
+        'accessKey=' +
         accessKey +
         '&amount=' +
         amount +
