@@ -1041,9 +1041,9 @@ const cancelOrder = async (req, res, next) => {
         }
     } else if (req.user._id.toString() == order.user.toString()) {
         switch (order.status) {
-            case 'confirm':
-                res.status(400);
-                throw new Error('Đơn hàng đã được xác nhận. Không thể hủy đơn hàng');
+            // case 'confirm':
+            //     res.status(400);
+            //     throw new Error('Đơn hàng đã được xác nhận. Không thể hủy đơn hàng');
             case 'delivering':
                 res.status(400);
                 throw new Error('Đơn hàng đang được giao đến bạn. Không thể hủy đơn hàng');
