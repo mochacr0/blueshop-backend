@@ -909,6 +909,37 @@ const getOrderPaymentStatus = async (req, res) => {
         });
 };
 
+const refundOrderInCancel = async (paymentInformation) => {
+    if (paymentInformation.paymentMethod != PAYMENT_WITH_MOMO || !paymentInformation.paid) {
+        return;
+    }
+    //Create payment information with momo
+    // const requestBody = createRefundTransBody(orderId, order.paymentInformation.requestId);
+    const requestBody = createRefundTransBody(
+        uuidv4(),
+        paymentInformation.paymentAmount,
+        'Hoàn tiền qua ví Momo',
+        paymentInformation.requestId,
+        paymentInformation.transId,
+    );
+    const config = {
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(requestBody),
+        },
+    };
+    const result = await momo_Request
+        .post('/refund', requestBody, config)
+        .then((response) => {
+            return;
+        })
+        .catch(async (error) => {
+            console.log(error);
+            res.status(400);
+            throw new Error(error.response?.message || error.message);
+        });
+};
+
 const refundTrans = async (req, res) => {
     const orderId = req.params.id;
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate('paymentInformation');
@@ -1019,7 +1050,7 @@ const cancelOrder = async (req, res, next) => {
     }
     const orderId = req.params.id || '';
     const description = req.body.description?.toString()?.trim() || '';
-    const order = await Order.findOne({ _id: orderId }).populate('delivery');
+    const order = await Order.findOne({ _id: orderId }).populate('delivery').populate('paymentInformation');
 
     if (!order) {
         res.status(404);
@@ -1109,6 +1140,7 @@ const cancelOrder = async (req, res, next) => {
                     throw new Error('Gặp lỗi khi hủy đơn giao hàng của đơn vị Giao Hàng Nhanh');
                 }
             }
+            refundOrderInCancel(order.paymentInformation);
             order.status = 'cancelled';
             order.statusHistory.push({ status: 'cancelled', description: description });
             const cancelledOrder = await order.save();
