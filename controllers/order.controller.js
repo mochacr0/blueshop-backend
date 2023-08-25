@@ -837,19 +837,20 @@ const orderPaymentNotification = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    console.log(JSON.stringify(req.body));
     const orderId = req.body.orderId?.toString().trim() || '';
     if (!orderId) {
         res.status(400);
         throw new Error('Mã đơn hàng là giá trị bắt buộc');
     }
-
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate('paymentInformation');
     if (!order) {
         res.status(404);
         throw new Error('Đơn hàng không tồn tại!');
     }
-    console.log(order);
+    if (order.paymentInformation.paid) {
+        res.status(400);
+        throw new Error('Đơn hàng đã được thanh toán');
+    }
     if (
         order.paymentInformation?.requestId?.toString() != req.body.requestId?.toString() ||
         Number(order.paymentInformation.paymentAmount) != Number(req.body.amount)

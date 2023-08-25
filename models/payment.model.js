@@ -1,5 +1,23 @@
 import mongoose from 'mongoose';
 
+const refundTranSchema = mongoose.Schema({
+    orderId: {
+        type: String,
+    },
+    amount: {
+        type: Number,
+    },
+    resultCode: {
+        type: Number,
+    },
+    transId: {
+        type: String,
+    },
+    createdTime: {
+        type: Number,
+    },
+});
+
 const paymentSchema = mongoose.Schema(
     {
         user: {
@@ -21,7 +39,7 @@ const paymentSchema = mongoose.Schema(
         amount: {
             type: Number,
         },
-        refundTrans: [{ type: String }],
+        refundTrans: [refundTranSchema],
         paymentMethod: {
             type: String,
             required: true,
