@@ -3,8 +3,12 @@ import asyncHandler from 'express-async-handler';
 import { protect, auth } from '../middleware/auth.middleware.js';
 import userController from '../controllers/user.controller.js';
 import validate from '../middleware/validate.middleware.js';
+import { passportGoogleConfig } from '../config/oauth2.google.config.js';
+import passport from 'passport';
+import generateAuthToken from '../utils/generateToken.js';
 
 const userRouter = express.Router();
+passportGoogleConfig(passport);
 
 userRouter.get('/profile', protect, asyncHandler(userController.getProfile));
 userRouter.get('/', protect, auth('staff', 'admin'), asyncHandler(userController.getUsersByAdmin));
@@ -45,4 +49,11 @@ userRouter.patch(
 userRouter.patch('/auth/forgot-password', validate.forgotPassword, asyncHandler(userController.forgotPassword));
 userRouter.patch('/auth/reset-password', validate.resetPassword, asyncHandler(userController.resetPassword));
 userRouter.patch('/auth/cancel-reset-password', asyncHandler(userController.cancelResetPassword));
+userRouter.get('/oauth2/google', passport.authenticate('google', { scope: ['email', 'profile'] }));
+userRouter.get('/login/oauth2/code/google', passport.authenticate('google', { session: false }), (req, res, next) => {
+    console.log(req);
+    res.redirect(
+        `${process.env.CLIENT_PAGE_URL}?accessToken=${req.user.accessToken}&refreshToken=${req.user.refreshToken}&expiresIn=${req.user.expiresIn}`,
+    );
+});
 export default userRouter;
