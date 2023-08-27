@@ -14,12 +14,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { momo_Request, GHN_Request } from '../utils/request.js';
 import Delivery from '../models/delivery.model.js';
 import statusResponseFalse from '../utils/messageMoMo.js';
+import crypto from 'crypto';
 
 //CONSTANT
 const TYPE_DISCOUNT_MONEY = 1;
 const TYPE_DISCOUNT_PERCENT = 2;
 const PAYMENT_WITH_CASH = 1;
 const PAYMENT_WITH_MOMO = 2;
+const PAYMENT_DEFAULT_ORDER_INFO = 'Thanh toán đơn hàng tại Fashion Shop';
 const getOrdersByUserId = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
@@ -528,13 +530,15 @@ const createOrder = async (req, res, next) => {
             if (newPaymentInformation.paymentMethod == PAYMENT_WITH_MOMO) {
                 //Create payment information with momo
                 const amount = Number(orderInfor.totalPayment).toFixed();
-                const redirectUrl = `${process.env.CLIENT_PAGE_URL}/order/${orderInfor._id}/waiting-payment`;
-                const ipnUrl = `${process.env.API_URL}/api/v1/orders/${orderInfor._id}/payment-notification`;
+                // const redirectUrl = `${process.env.CLIENT_PAGE_URL}/order/${orderInfor._id}/waiting-payment`;
+                // const ipnUrl = `${process.env.API_URL}/api/v1/orders/${orderInfor._id}/payment-notification`;
+                const ipnUrl = `http://localhost:5000/api/v1/orders/${orderInfor._id}/payment-notification`;
+                const redirectUrl = ipnUrl;
                 const requestId = uuidv4();
                 const requestBody = createPaymentBody(
                     orderInfor._id,
                     requestId,
-                    'Thanh toán đơn hàng tại Fashion Shop',
+                    PAYMENT_DEFAULT_ORDER_INFO,
                     amount,
                     redirectUrl,
                     ipnUrl,
@@ -830,6 +834,46 @@ const confirmReceived = async (req, res) => {
     res.status(200).json({ message: 'Xác nhận đã nhận hàng thành công', data: { updateOrder } });
 };
 
+const validateIpnSignature = (order, req, res) => {
+    const { resultCode, message, responseTime, extraData, signature, orderType, payType, transId } = req.query;
+    const orderPayment = order.paymentInformation;
+    const rawSignature =
+        'accessKey=' +
+        process.env.MOMO_ACCESS_KEY +
+        '&amount=' +
+        orderPayment.paymentAmount +
+        '&extraData=' +
+        extraData +
+        '&message=' +
+        message +
+        '&orderId=' +
+        order._id +
+        '&orderInfo=' +
+        PAYMENT_DEFAULT_ORDER_INFO +
+        '&orderType=' +
+        orderType +
+        '&partnerCode=' +
+        process.env.MOMO_PARTNER_CODE +
+        '&payType=' +
+        payType +
+        '&requestId=' +
+        orderPayment.requestId +
+        '&responseTime=' +
+        responseTime +
+        '&resultCode=' +
+        resultCode +
+        '&transId=' +
+        transId;
+    const craftedSignature = crypto
+        .createHmac('sha256', process.env.MOMO_SECRET_KEY)
+        .update(rawSignature)
+        .digest('hex');
+    if (craftedSignature != signature) {
+        res.status(400);
+        throw new Error('Chữ ký IPN không hợp lệ');
+    }
+};
+
 const orderPaymentNotification = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
@@ -837,7 +881,9 @@ const orderPaymentNotification = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    const orderId = req.body.orderId?.toString().trim() || '';
+
+    //validate
+    const orderId = req.query.orderId;
     if (!orderId) {
         res.status(400);
         throw new Error('Mã đơn hàng là giá trị bắt buộc');
@@ -852,31 +898,37 @@ const orderPaymentNotification = async (req, res) => {
         throw new Error('Đơn hàng đã được thanh toán');
     }
     if (
-        order.paymentInformation?.requestId?.toString() != req.body.requestId?.toString() ||
-        Number(order.paymentInformation.paymentAmount) != Number(req.body.amount)
+        order.paymentInformation?.requestId?.toString() != req.query.requestId?.toString() ||
+        Number(order.paymentInformation.paymentAmount) != Number(req.query.amount)
     ) {
         res.status(400);
         throw new Error('Thông tin xác nhận thanh toán không hợp lệ');
     }
-    if (req.body.resultCode != 0) {
-        if (order.status != 'cancelled' && order.status != 'delivered' && order.status != 'completed') {
-            const message = statusResponseFalse[req.body.resultCode] || statusResponseFalse[99];
-            order.statusHistory.push({ status: 'cancelled', description: message });
-            order.status = 'cancelled';
-            await order.save();
-            res.status(204);
-            throw new Error('Thanh toán thất bại');
-        }
-    } else {
-        if (order.status != 'cancelled') {
-            order.statusHistory.push({ status: 'paid', updateBy: order.user });
-        }
-        order.paymentInformation.paid = true;
-        order.paymentInformation.paidAt = new Date();
-        await order.paymentInformation.save();
+
+    validateIpnSignature(order, req, res);
+
+    if (
+        req.query.resultCode != 0 &&
+        order.status != 'cancelled' &&
+        order.status != 'delivered' &&
+        order.status != 'completed'
+    ) {
+        const message = statusResponseFalse[req.query.resultCode] || statusResponseFalse[99];
+        order.statusHistory.push({ status: 'cancelled', description: message });
+        order.status = 'cancelled';
         await order.save();
         res.status(204);
+        throw new Error('Thanh toán thất bại');
     }
+    if (order.status != 'cancelled') {
+        order.statusHistory.push({ status: 'paid', updateBy: order.user });
+    }
+    order.paymentInformation.transId = req.query.transId;
+    order.paymentInformation.paid = true;
+    order.paymentInformation.paidAt = new Date();
+    await order.paymentInformation.save();
+    await order.save();
+    res.status(204);
 };
 
 const getOrderPaymentStatus = async (req, res) => {
