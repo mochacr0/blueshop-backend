@@ -1,4 +1,4 @@
-import image from '../assets/images/index.js';
+import image from '../../assets/images/index.js';
 export const htmlMailVerify = (
     emailVerificationToken,
 ) => ` <table width="100%" height="100%" cellpadding="0" cellspacing="0" bgcolor="#f5f6f7">

@@ -7,7 +7,9 @@ import DiscountCode from '../models/discountCode.model.js';
 import Token from '../models/token.model.js';
 import { sendMail } from '../utils/nodemailler.js';
 import generateAuthToken from '../utils/generateToken.js';
-import { htmlMailVerify, htmlResetEmail } from '../common/LayoutMail.js';
+import { htmlMailVerify, htmlResetEmail } from '../common/templates/LayoutMail.js';
+import activationMail from '../common/templates/mail.activation.js';
+import passwordResetEmail from '../common/templates/password.reset.js';
 import image from '../assets/images/index.js';
 import { validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
@@ -147,7 +149,7 @@ const register = async (req, res) => {
     const emailVerificationToken = user.getEmailVerificationToken();
     await user.save();
     const url = `${process.env.CLIENT_PAGE_URL}/register/confirm?emailVerificationToken=${emailVerificationToken}`;
-    const html = htmlMailVerify(emailVerificationToken);
+    const html = activationMail(user.email, emailVerificationToken, user.name);
 
     //start cron-job
     let scheduledJob = schedule.scheduleJob(`*/${process.env.EMAIL_VERIFY_EXPIED_TIME_IN_MINUTE} * * * *`, async () => {
@@ -264,7 +266,8 @@ const forgotPassword = async (req, res, next) => {
 
     // Send reset password email
     const resetPasswordUrl = `${process.env.CLIENT_PAGE_URL}/reset?resetPasswordToken=${resetPasswordToken}`;
-    const html = htmlResetEmail({ link: resetPasswordUrl, email, urlLogo: image.logo });
+    // const html = htmlResetEmail({ link: resetPasswordUrl, email, urlLogo: image.logo });
+    const html = passwordResetEmail(email, resetPasswordUrl, user.name);
 
     // Set up message options
     const messageOptions = {
