@@ -554,6 +554,7 @@ const createOrder = async (req, res, next) => {
                     .then((response) => {
                         newPaymentInformation.payUrl = response.data.shortLink;
                         newPaymentInformation.requestId = requestId;
+                        newPaymentInformation.status = { state: 'initialized', description: 'Chưa thanh toán' };
                     })
                     .catch(async (error) => {
                         await session.abortTransaction();
@@ -926,6 +927,7 @@ const orderPaymentNotification = async (req, res) => {
     order.paymentInformation.transId = req.query.transId;
     order.paymentInformation.paid = true;
     order.paymentInformation.paidAt = new Date();
+    order.paymentInformation.status = { state: 'paid', description: 'Đã thanh toán' };
     await order.paymentInformation.save();
     await order.save();
     res.status(204);
@@ -983,7 +985,9 @@ const refundOrderInCancel = async (paymentInformation) => {
     };
     const result = await momo_Request
         .post('/refund', requestBody, config)
-        .then((response) => {
+        .then(async (response) => {
+            paymentInformation.status = { state: 'refunded', description: 'Hoàn tiền thành công' };
+            await paymentInformation.save();
             return;
         })
         .catch(async (error) => {

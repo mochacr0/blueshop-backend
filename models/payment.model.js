@@ -18,6 +18,22 @@ const refundTranSchema = mongoose.Schema({
     },
 });
 
+const statusSchema = mongoose.Schema(
+    {
+        state: {
+            type: String,
+            enum: ['initialized', 'paid', 'refunded'],
+            default: 'initialized',
+        },
+        description: {
+            type: String,
+        },
+    },
+    {
+        timestamps: true,
+    },
+);
+
 const paymentSchema = mongoose.Schema(
     {
         user: {
@@ -64,6 +80,7 @@ const paymentSchema = mongoose.Schema(
             type: Date,
             default: null,
         },
+        status: statusSchema,
         updatedVersion: {
             type: Number,
             default: 0,
