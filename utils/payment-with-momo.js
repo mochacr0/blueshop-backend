@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { ORDER_MOMO_TRANSACTION_EXPIRY_TIME_IN_MINUTE } from '../utils/orderConstants.js';
 
 const accessKey = process.env.MOMO_ACCESS_KEY;
 const secretKey = process.env.MOMO_SECRET_KEY;
@@ -49,6 +50,7 @@ export const createPaymentBody = (orderId, requestId, orderInfo, amount, redirec
         requestType: requestType,
         autoCapture: autoCapture,
         extraData: extraData,
+        orderExpireTime: ORDER_MOMO_TRANSACTION_EXPIRY_TIME_IN_MINUTE,
         orderGroupId: orderGroupId,
         signature: signature,
     });
