@@ -6,7 +6,10 @@ import DiscountCode from '../models/discountCode.model.js';
 import User from '../models/user.model.js';
 import Cart from '../models/cart.model.js';
 import Order from '../models/order.model.js';
-import Payment from '../models/payment.model.js';
+import orderController from '../controllers/order.controller.js';
+import mongoose from 'mongoose';
+import { PAYMENT_WITH_CASH, PAYMENT_WITH_MOMO } from '../utils/paymentConstants.js';
+
 export const deleteExpiredTokens = schedule.scheduleJob(`*/60 * * * *`, async () => {
     console.log('delete expired tokens .....................................................');
     await Token.deleteMany({
@@ -31,6 +34,7 @@ const deleteProduct = schedule.scheduleJob(`*/1440 * * * *`, async () => {
         });
     }
 });
+
 const autoConfirmOrder = schedule.scheduleJob(`*/1440 * * * *`, async () => {
     console.log('update order .....................................................');
     let expired = new Date();
@@ -48,6 +52,7 @@ const autoConfirmOrder = schedule.scheduleJob(`*/1440 * * * *`, async () => {
         { $set: { status: 'completed' }, $push: { statusHistory: { status: 'completed' } } },
     );
 });
+
 const removeExpiredDiscountCodeFromUser = schedule.scheduleJob(`*/60 * * * *`, async () => {
     console.log('delete discountCode .....................................................');
     const findDiscountCodes = await DiscountCode.distinct('_id', {
@@ -58,6 +63,7 @@ const removeExpiredDiscountCodeFromUser = schedule.scheduleJob(`*/60 * * * *`, a
         { $pull: { discountCode: { $in: findDiscountCodes } } },
     );
 });
+
 const deleteProductInCart = schedule.scheduleJob(`*1440 * * * *`, async () => {
     console.log('delete product in cart user.....................................................');
     let expired = new Date();
@@ -75,3 +81,82 @@ const deleteProductInCart = schedule.scheduleJob(`*1440 * * * *`, async () => {
         });
     }
 });
+
+const scheduleCancelUnpaidOrder = (order) => {
+    schedule.scheduleJob(order.expiredAt, async () => {
+        const session = await mongoose.startSession();
+        const transactionOptions = {
+            readPreference: 'primary',
+            readConcern: { level: 'local' },
+            writeConcern: { w: 'majority' },
+        };
+        try {
+            const unpaidOrder = await Order.findOne({
+                _id: order._id,
+                status: 'placed',
+                expiredAt: { $lte: new Date() },
+            }).populate('paymentInformation');
+            if (
+                unpaidOrder == null ||
+                unpaidOrder.paymentInformation.paid ||
+                unpaidOrder.paymentInformation.paymentMethod != PAYMENT_WITH_MOMO
+            ) {
+                console.log('not found');
+                return;
+            }
+            await orderController.rollbackProductQuantites(unpaidOrder, session);
+            await orderController.refundOrderInCancel(unpaidOrder, session);
+            unpaidOrder.status = 'cancelled';
+            unpaidOrder.statusHistory.push({ status: 'cancelled', description: 'Hết hạn thanh toán' });
+            const cancelledOrder = await unpaidOrder.save();
+            if (!cancelledOrder) {
+                await session.abortTransaction();
+                console.error(`Hủy đơn hàng ${unpaidOrder._id} thất bại`);
+            } else {
+                console.log(`Đơn hàng ${unpaidOrder._id} đã bị hủy vì hết hạn thanh toán`);
+            }
+        } catch (error) {
+            throw new Error(error);
+        } finally {
+            await session.endSession();
+        }
+    });
+};
+
+const scheduleCancelUncofirmedOrder = (order) => {
+    schedule.scheduleJob(order.expiredAt, async () => {
+        const session = await mongoose.startSession();
+        const transactionOptions = {
+            readPreference: 'primary',
+            readConcern: { level: 'local' },
+            writeConcern: { w: 'majority' },
+        };
+        try {
+            const unpaidOrder = await Order.findOne({
+                _id: order._id,
+                status: 'placed',
+                expiredAt: { $lte: new Date() },
+            }).populate('paymentInformation');
+            if (unpaidOrder == null || unpaidOrder.paymentInformation.paymentMethod != PAYMENT_WITH_CASH) {
+                return;
+            }
+            await orderController.rollbackProductQuantites(unpaidOrder, session);
+            await orderController.refundOrderInCancel(unpaidOrder, session);
+            unpaidOrder.status = 'cancelled';
+            unpaidOrder.statusHistory.push({ status: 'cancelled', description: 'Shop không phản hồi' });
+            const cancelledOrder = await unpaidOrder.save();
+            if (!cancelledOrder) {
+                await session.abortTransaction();
+                console.error(`Hủy đơn hàng ${unpaidOrder._id} thất bại`);
+            } else {
+                console.log(`Đơn hàng ${unpaidOrder._id} đã bị hủy vì Shop không phản hồi`);
+            }
+        } catch (error) {
+            throw new Error(error);
+        } finally {
+            await session.endSession();
+        }
+    });
+};
+
+export { scheduleCancelUnpaidOrder, scheduleCancelUncofirmedOrder };

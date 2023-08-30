@@ -114,6 +114,9 @@ const orderSchema = mongoose.Schema(
             type: Number,
             default: 0,
         },
+        expiredAt: {
+            type: Date,
+        },
     },
     {
         timestamps: true,

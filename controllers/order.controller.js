@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import schedule, { scheduleJob } from 'node-schedule';
 import Product from '../models/product.model.js';
 import Order from '../models/order.model.js';
 import Variant from '../models/variant.model.js';
@@ -15,13 +14,16 @@ import { momo_Request, GHN_Request } from '../utils/request.js';
 import Delivery from '../models/delivery.model.js';
 import statusResponseFalse from '../utils/messageMoMo.js';
 import crypto from 'crypto';
+import { MAX_MINUTES_WAITING_TO_PAY, MAX_DAYS_WAITING_FOR_SHOP_CONFIRMATION } from '../utils/orderConstants.js';
+import { PAYMENT_WITH_CASH, PAYMENT_WITH_MOMO } from '../utils/paymentConstants.js';
+import { scheduleCancelUncofirmedOrder, scheduleCancelUnpaidOrder } from '../cronJobs/cronJobs.js';
 
 //CONSTANT
 const TYPE_DISCOUNT_MONEY = 1;
 const TYPE_DISCOUNT_PERCENT = 2;
-const PAYMENT_WITH_CASH = 1;
-const PAYMENT_WITH_MOMO = 2;
+
 const PAYMENT_DEFAULT_ORDER_INFO = 'Thanh toán đơn hàng tại Fashion Shop';
+
 const getOrdersByUserId = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
@@ -554,7 +556,6 @@ const createOrder = async (req, res, next) => {
                     .then((response) => {
                         newPaymentInformation.payUrl = response.data.shortLink;
                         newPaymentInformation.requestId = requestId;
-                        newPaymentInformation.status = { state: 'initialized', description: 'Chưa thanh toán' };
                     })
                     .catch(async (error) => {
                         await session.abortTransaction();
@@ -566,6 +567,7 @@ const createOrder = async (req, res, next) => {
                 res.status(400);
                 throw new Error('Phương thức thanh toán không hợp lệ');
             }
+            newPaymentInformation.status = { state: 'initialized', description: 'Chưa thanh toán' };
             const createOrderPaymentInformation = await newPaymentInformation.save({ session });
             if (!createOrderPaymentInformation) {
                 await session.abortTransaction();
@@ -574,47 +576,66 @@ const createOrder = async (req, res, next) => {
             }
 
             orderInfor.paymentInformation = createOrderPaymentInformation._id;
+
             //start cron-job
-            let scheduledJob = schedule.scheduleJob(
-                `*/${process.env.PAYMENT_EXPIRY_TIME_IN_MINUTE} * * * *`,
-                async () => {
-                    const foundOrder = await Order.findOne({
-                        _id: orderInfor._id,
-                    }).populate('paymentInformation');
-                    if (!foundOrder.paymentInformation.paid) {
-                        if (
-                            foundOrder.status != 'cancelled'
-                            // &&
-                            // foundOrder.status != 'delivered' &&
-                            // foundOrder.status != 'completed'
-                        ) {
-                            foundOrder.status = 'cancelled';
-                            foundOrder.statusHistory.push({
-                                status: 'cancelled',
-                                description: 'Đơn hàng bị hủy do chưa được thanh toán',
-                            });
-                            await foundOrder.save();
-                            console.log(`Đơn hàng "${orderInfor._id}" đã bị hủy `);
-                        }
-                    }
-                    scheduledJob.cancel();
-                },
-            );
+            // let scheduledJob = schedule.scheduleJob(
+            //     // `*/${process.env.PAYMENT_EXPIRY_TIME_IN_MINUTE} * * * *`,
+            //     async () => {
+            //         const foundOrder = await Order.findOne({
+            //             _id: orderInfor._id,
+            //         }).populate('paymentInformation');
+            //         if (!foundOrder.paymentInformation.paid) {
+            //             if (
+            //                 foundOrder.status != 'cancelled'
+            //                 // &&
+            //                 // foundOrder.status != 'delivered' &&
+            //                 // foundOrder.status != 'completed'
+            //             ) {
+            //                 foundOrder.status = 'cancelled';
+            //                 foundOrder.statusHistory.push({
+            //                     status: 'cancelled',
+            //                     description: 'Đơn hàng bị hủy do chưa được thanh toán',
+            //                 });
+            //                 await foundOrder.save();
+            //                 console.log(`Đơn hàng "${orderInfor._id}" đã bị hủy `);
+            //             }
+            //         }
+            //         scheduledJob.cancel();
+            //     },
+            // );
+
             await Cart.findOneAndUpdate(
                 { user: req.user._id },
                 { $pull: { cartItems: { variant: { $in: productCheckResult.orderItemIds } } } },
             )
                 .session(session)
                 .lean();
-            const newOrder = await (await orderInfor.save({ session })).populate(['delivery', 'paymentInformation']);
 
+            //set order expiry time
+            let now = new Date();
+            if (newPaymentInformation.paymentMethod == PAYMENT_WITH_MOMO) {
+                now.setMinutes(now.getMinutes() + MAX_MINUTES_WAITING_TO_PAY);
+            } else {
+                now.setDate(now.getDate() + MAX_DAYS_WAITING_FOR_SHOP_CONFIRMATION);
+            }
+            orderInfor.expiredAt = now;
+
+            const newOrder = await (await orderInfor.save({ session })).populate(['delivery', 'paymentInformation']);
             if (!newOrder) {
                 await session.abortTransaction();
                 res.status(502);
                 throw new Error('Xảy ra lỗi trong quá trình tạo đơn hàng');
             }
-            res.status(201).json({ message: 'Đặt hàng thành công', data: { newOrder } });
+
+            //schedule job
+            if (newOrder.paymentInformation.paymentMethod == PAYMENT_WITH_MOMO) {
+                scheduleCancelUnpaidOrder(newOrder);
+            } else if (newOrder.paymentInformation.paymentMethod == PAYMENT_WITH_CASH) {
+                scheduleCancelUncofirmedOrder(newOrder);
+            }
+
             await session.commitTransaction();
+            res.status(201).json({ message: 'Đặt hàng thành công', data: { newOrder } });
         }, transactionOptions);
     } catch (error) {
         next(error);
@@ -875,7 +896,7 @@ const validateIpnSignature = (order, req, res) => {
     }
 };
 
-const orderPaymentNotification = async (req, res) => {
+const orderPaymentNotification = async (req, res, next) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -894,6 +915,10 @@ const orderPaymentNotification = async (req, res) => {
         res.status(404);
         throw new Error('Đơn hàng không tồn tại!');
     }
+    if (order.status == 'cancelled' || order.status == 'delivered' || order.status == 'completed') {
+        res.status(400);
+        throw new Error('Đơn hàng đã hoàn thành hoặc bị hủy');
+    }
     if (order.paymentInformation.paid) {
         res.status(400);
         throw new Error('Đơn hàng đã được thanh toán');
@@ -908,18 +933,39 @@ const orderPaymentNotification = async (req, res) => {
 
     validateIpnSignature(order, req, res);
 
-    if (
-        req.query.resultCode != 0 &&
-        order.status != 'cancelled' &&
-        order.status != 'delivered' &&
-        order.status != 'completed'
-    ) {
+    if (req.query.resultCode != 0 && order.status == 'placed') {
         const message = statusResponseFalse[req.query.resultCode] || statusResponseFalse[99];
-        order.statusHistory.push({ status: 'cancelled', description: message });
-        order.status = 'cancelled';
-        await order.save();
-        res.status(204);
-        throw new Error('Thanh toán thất bại');
+
+        //cancle order
+        const session = await mongoose.startSession();
+        const transactionOptions = {
+            readPreference: 'primary',
+            readConcern: { level: 'local' },
+            writeConcern: { w: 'majority' },
+        };
+        try {
+            await session.withTransaction(async () => {
+                await rollbackProductQuantites(order, session);
+                await cancelDelivery(order, session);
+                //update order status
+                order.status = 'cancelled';
+                order.statusHistory.push({ status: 'cancelled', description: 'Từ chối thanh toán' });
+                order.expiredAt = null;
+                const cancelledOrder = await order.save();
+                if (!cancelledOrder) {
+                    await session.abortTransaction();
+                    res.status(502);
+                    throw new Error('Gặp lỗi khi hủy đơn hàng');
+                }
+                res.status(204);
+                console.error('Thanh toán thất bại, người dùng từ chối thanh toán');
+            }, transactionOptions);
+        } catch (error) {
+            next(error);
+        } finally {
+            await session.endSession();
+            return;
+        }
     }
     if (order.status != 'cancelled') {
         order.statusHistory.push({ status: 'paid', updateBy: order.user });
@@ -929,6 +975,7 @@ const orderPaymentNotification = async (req, res) => {
     order.paymentInformation.paidAt = new Date();
     order.paymentInformation.status = { state: 'paid', description: 'Đã thanh toán' };
     await order.paymentInformation.save();
+    order.expiredAt = null;
     await order.save();
     res.status(204);
 };
@@ -1159,45 +1206,10 @@ const cancelOrder = async (req, res, next) => {
     };
     try {
         await session.withTransaction(async () => {
-            const updateOrderItems = order.orderItems.map(async (orderItem) => {
-                const updateProduct = await Product.findOneAndUpdate(
-                    { _id: orderItem.product },
-                    { $inc: { totalSales: -orderItem.quantity, quantity: +orderItem.quantity } },
-                )
-                    .session(session)
-                    .lean();
-                const updateVariant = await Variant.findOneAndUpdate(
-                    { product: orderItem.product._id, attributes: orderItem.attributes },
-                    { $inc: { quantity: +orderItem.quantity } },
-                    { new: true },
-                )
-                    .session(session)
-                    .lean();
-            });
-            await Promise.all(updateOrderItems);
-            if (order.status == 'delivering' && order.delivery.deliveryCode) {
-                const config = {
-                    data: JSON.stringify({
-                        shop_id: Number(process.env.GHN_SHOP_ID),
-                        order_codes: [new String(order.delivery.deliveryCode)],
-                    }),
-                };
-                const deliveryInfo = await GHN_Request.get('v2/switch-status/cancel', config)
-                    .then((response) => {
-                        return response.data.data;
-                    })
-                    .catch((error) => {
-                        res.status(error.response.data.code || 502);
-                        throw new Error(error.response.data.message || error.message || null);
-                    });
-
-                if (!deliveryInfo) {
-                    await session.abortTransaction();
-                    res.status(502);
-                    throw new Error('Gặp lỗi khi hủy đơn giao hàng của đơn vị Giao Hàng Nhanh');
-                }
-            }
-            refundOrderInCancel(order.paymentInformation);
+            await rollbackProductQuantites(order, session);
+            await cancelDelivery(order, session);
+            await refundOrderInCancel(order.paymentInformation);
+            //update order status
             order.status = 'cancelled';
             order.statusHistory.push({ status: 'cancelled', description: description });
             const cancelledOrder = await order.save();
@@ -1215,6 +1227,50 @@ const cancelOrder = async (req, res, next) => {
     }
 };
 
+const rollbackProductQuantites = async (order, session) => {
+    const updateOrderItems = order.orderItems.map(async (orderItem) => {
+        const updateProduct = await Product.findOneAndUpdate(
+            { _id: orderItem.product },
+            { $inc: { totalSales: -orderItem.quantity, quantity: +orderItem.quantity } },
+        )
+            .session(session)
+            .lean();
+        const updateVariant = await Variant.findOneAndUpdate(
+            { product: orderItem.product._id, attributes: orderItem.attributes },
+            { $inc: { quantity: +orderItem.quantity } },
+            { new: true },
+        )
+            .session(session)
+            .lean();
+    });
+    await Promise.all(updateOrderItems);
+};
+
+const cancelDelivery = async (order, session) => {
+    if (order.status == 'delivering' && order.delivery.deliveryCode) {
+        const config = {
+            data: JSON.stringify({
+                shop_id: Number(process.env.GHN_SHOP_ID),
+                order_codes: [new String(order.delivery.deliveryCode)],
+            }),
+        };
+        const deliveryInfo = await GHN_Request.get('v2/switch-status/cancel', config)
+            .then((response) => {
+                return response.data.data;
+            })
+            .catch((error) => {
+                res.status(error.response.data.code || 502);
+                throw new Error(error.response.data.message || error.message || null);
+            });
+
+        if (!deliveryInfo) {
+            await session.abortTransaction();
+            res.status(502);
+            throw new Error('Gặp lỗi khi hủy đơn giao hàng của đơn vị Giao Hàng Nhanh');
+        }
+    }
+};
+
 const orderController = {
     getOrdersByUserId,
     getOrderById,
@@ -1229,6 +1285,9 @@ const orderController = {
     cancelOrder,
     getOrderPaymentStatus,
     refundTrans,
+    refundOrderInCancel,
+    rollbackProductQuantites,
+    cancelDelivery,
 };
 
 export default orderController;
