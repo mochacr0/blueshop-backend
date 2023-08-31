@@ -2,130 +2,137 @@ const activationMail = (mailTo, emailVerificationToken, name) =>
     `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html
-    xmlns="http://www.w3.org/1999/xhtml"
-    style="
+  xmlns="http://www.w3.org/1999/xhtml"
+  style="
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
     box-sizing: border-box;
     font-size: 14px;
     margin: 0;
-    "
+  "
 >
-    <head>
+  <head>
     <meta name="viewport" content="width=device-width" />
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>Xác nhận email của bạn trên BlueShop</title>
 
     <style type="text/css">
-        img {
+      img {
         max-width: 100%;
-        }
-        body {
+      }
+      body {
         -webkit-font-smoothing: antialiased;
         -webkit-text-size-adjust: none;
         width: 100% !important;
         height: 100%;
         line-height: 1.6em;
-        }
-        body {
+      }
+      body {
         background-color: #f6f6f6;
-        }
-        @media only screen and (max-width: 640px) {
+      }
+      @media only screen and (max-width: 640px) {
         body {
-            padding: 0 !important;
+          padding: 0 !important;
         }
         h1 {
-            font-weight: 800 !important;
-            margin: 20px 0 5px !important;
+          font-weight: 800 !important;
+          margin: 20px 0 5px !important;
         }
         h2 {
-            font-weight: 800 !important;
-            margin: 20px 0 5px !important;
+          font-weight: 800 !important;
+          margin: 20px 0 5px !important;
         }
         h3 {
-            font-weight: 800 !important;
-            margin: 20px 0 5px !important;
+          font-weight: 800 !important;
+          margin: 20px 0 5px !important;
         }
         h4 {
-            font-weight: 800 !important;
-            margin: 20px 0 5px !important;
+          font-weight: 800 !important;
+          margin: 20px 0 5px !important;
         }
         h1 {
-            font-size: 22px !important;
+          font-size: 22px !important;
         }
         h2 {
-            font-size: 18px !important;
+          font-size: 18px !important;
         }
         h3 {
-            font-size: 16px !important;
+          font-size: 16px !important;
         }
         .container {
-            padding: 0 !important;
-            width: 100% !important;
+          padding: 0 !important;
+          width: 100% !important;
         }
         .content {
-            padding: 0 !important;
+          padding: 0 !important;
         }
         .content-wrap {
-            padding: 10px !important;
+          padding: 10px !important;
         }
         .invoice {
-            width: 100% !important;
+          width: 100% !important;
         }
-        }
+      }
+      .important-note {
+        background-color: #fde073;
+        border: 2px solid #f9b52d;
+        padding: 15px;
+        color: #e63946;
+        font-weight: bold;
+      }
     </style>
-    </head>
+  </head>
 
-    <body
+  <body
     itemscope
     itemtype="http://schema.org/EmailMessage"
     style="
-        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-        box-sizing: border-box;
-        font-size: 14px;
-        -webkit-font-smoothing: antialiased;
-        -webkit-text-size-adjust: none;
-        width: 100% !important;
-        height: 100%;
-        line-height: 1.6em;
-        background-color: #f6f6f6;
-        margin: 0;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      box-sizing: border-box;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+      -webkit-text-size-adjust: none;
+      width: 100% !important;
+      height: 100%;
+      line-height: 1.6em;
+      background-color: #f6f6f6;
+      margin: 0;
     "
     bgcolor="#f6f6f6"
-    >
+  >
     <table
-        class="body-wrap"
-        style="
+      class="body-wrap"
+      style="
         font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
         box-sizing: border-box;
         font-size: 14px;
         width: 100%;
         background-color: #f6f6f6;
         margin: 0;
-        "
-        bgcolor="#f6f6f6"
+      "
+      bgcolor="#f6f6f6"
     >
-        <tr
+      <tr
         style="
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            box-sizing: border-box;
-            font-size: 14px;
-            margin: 0;
+          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          box-sizing: border-box;
+          font-size: 14px;
+          margin: 0;
         "
-        >
+      >
         <td
-            style="
+          style="
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             box-sizing: border-box;
             font-size: 14px;
             vertical-align: top;
             margin: 0;
-            "
-            valign="top"
+          "
+          valign="top"
         ></td>
         <td
-            class="container"
-            width="600"
-            style="
+          class="container"
+          width="600"
+          style="
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             box-sizing: border-box;
             font-size: 14px;
@@ -134,30 +141,30 @@ const activationMail = (mailTo, emailVerificationToken, name) =>
             max-width: 600px !important;
             clear: both !important;
             margin: 0 auto;
-            "
-            valign="top"
+          "
+          valign="top"
         >
-            <div
+          <div
             class="content"
             style="
-                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-                box-sizing: border-box;
-                font-size: 14px;
-                max-width: 600px;
-                display: block;
-                margin: 0 auto;
-                padding: 20px;
+              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+              box-sizing: border-box;
+              font-size: 14px;
+              max-width: 600px;
+              display: block;
+              margin: 0 auto;
+              padding: 20px;
             "
-            >
+          >
             <table
-                class="main"
-                width="100%"
-                cellpadding="0"
-                cellspacing="0"
-                itemprop="action"
-                itemscope
-                itemtype="http://schema.org/ConfirmAction"
-                style="
+              class="main"
+              width="100%"
+              cellpadding="0"
+              cellspacing="0"
+              itemprop="action"
+              itemscope
+              itemtype="http://schema.org/ConfirmAction"
+              style="
                 font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
                 box-sizing: border-box;
                 font-size: 14px;
@@ -165,175 +172,175 @@ const activationMail = (mailTo, emailVerificationToken, name) =>
                 background-color: #fff;
                 margin: 0;
                 border: 1px solid #e9e9e9;
-                "
-                bgcolor="#fff"
+              "
+              bgcolor="#fff"
             >
-                <tr
+              <tr
                 style="
-                    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-                    box-sizing: border-box;
-                    font-size: 14px;
-                    margin: 0;
+                  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                  box-sizing: border-box;
+                  font-size: 14px;
+                  margin: 0;
                 "
-                >
+              >
                 <td
-                    class="content-wrap"
-                    style="
+                  class="content-wrap"
+                  style="
                     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
                     box-sizing: border-box;
                     font-size: 14px;
                     vertical-align: top;
                     margin: 0;
                     padding: 20px;
-                    "
-                    valign="top"
+                  "
+                  valign="top"
                 >
-                    <meta
+                  <meta
                     itemprop="name"
                     content="Confirm Email"
                     style="
-                        font-family: 'Helvetica Neue', Helvetica, Arial,
+                      font-family: 'Helvetica Neue', Helvetica, Arial,
                         sans-serif;
-                        box-sizing: border-box;
-                        font-size: 14px;
-                        margin: 0;
+                      box-sizing: border-box;
+                      font-size: 14px;
+                      margin: 0;
                     "
-                    />
-                    <table
+                  />
+                  <table
                     width="100%"
                     cellpadding="0"
                     cellspacing="0"
                     style="
-                        font-family: 'Helvetica Neue', Helvetica, Arial,
+                      font-family: 'Helvetica Neue', Helvetica, Arial,
                         sans-serif;
-                        box-sizing: border-box;
-                        font-size: 14px;
-                        margin: 0;
+                      box-sizing: border-box;
+                      font-size: 14px;
+                      margin: 0;
                     "
-                    >
+                  >
                     <tr
-                        style="
+                      style="
                         font-family: 'Helvetica Neue', Helvetica, Arial,
-                            sans-serif;
+                          sans-serif;
                         box-sizing: border-box;
                         font-size: 14px;
                         margin: 0;
-                        "
+                      "
                     >
-                        <td
+                      <td
                         class="content-block"
                         style="
-                            font-family: 'Helvetica Neue', Helvetica, Arial,
+                          font-family: 'Helvetica Neue', Helvetica, Arial,
                             sans-serif;
-                            color: #348eda;
-                            box-sizing: border-box;
-                            font-size: 14px;
-                            vertical-align: top;
-                            margin: 0;
-                            padding: 0 0 20px;
+                          color: #348eda;
+                          box-sizing: border-box;
+                          font-size: 14px;
+                          vertical-align: top;
+                          margin: 0;
+                          padding: 0 0 20px;
                         "
                         valign="top"
-                        >
+                      >
                         <h2>Chào mừng đến với BlueShop</h2>
-                        </td>
+                      </td>
                     </tr>
                     <tr
-                        style="
+                      style="
                         font-family: 'Helvetica Neue', Helvetica, Arial,
-                            sans-serif;
+                          sans-serif;
                         box-sizing: border-box;
                         font-size: 14px;
                         margin: 0;
-                        "
+                      "
                     >
-                        <td
+                      <td
                         class="content-block"
                         style="
-                            font-family: 'Helvetica Neue', Helvetica, Arial,
+                          font-family: 'Helvetica Neue', Helvetica, Arial,
                             sans-serif;
-                            box-sizing: border-box;
-                            font-size: 14px;
-                            vertical-align: top;
-                            margin: 0;
-                            padding: 0 0 20px;
+                          box-sizing: border-box;
+                          font-size: 14px;
+                          vertical-align: top;
+                          margin: 0;
+                          padding: 0 0 20px;
                         "
                         valign="top"
-                        >
+                      >
                         Chào bạn ${name}, bạn đã nhập địa chỉ
                         <a
-                            href="mailto:${mailTo}"
-                            style="
+                          href="mailto:${mailTo}"
+                          style="
                             font-family: 'Helvetica Neue', Helvetica, Arial,
-                                sans-serif;
+                              sans-serif;
                             box-sizing: border-box;
                             font-size: 12px;
                             color: #999;
                             text-decoration: underline;
                             margin: 0;
-                            "
-                            >${mailTo}</a
+                          "
+                          >${mailTo}</a
                         >
                         trên BlueShop.
-                        </td>
+                      </td>
                     </tr>
                     <tr
-                        style="
+                      style="
                         font-family: 'Helvetica Neue', Helvetica, Arial,
-                            sans-serif;
+                          sans-serif;
                         box-sizing: border-box;
                         font-size: 14px;
                         margin: 0;
-                        "
+                      "
                     >
-                        <td
+                      <td
                         class="content-block"
                         style="
-                            font-family: 'Helvetica Neue', Helvetica, Arial,
+                          font-family: 'Helvetica Neue', Helvetica, Arial,
                             sans-serif;
-                            box-sizing: border-box;
-                            font-size: 14px;
-                            vertical-align: top;
-                            margin: 0;
-                            padding: 0 0 20px;
+                          box-sizing: border-box;
+                          font-size: 14px;
+                          vertical-align: top;
+                          margin: 0;
+                          padding: 0 0 20px;
                         "
                         valign="top"
-                        >
+                      >
                         Vui lòng xác nhận địa chỉ email bằng cách click vào
                         button phía dưới và hoàn tất quá trình đăng ký.
-                        </td>
+                      </td>
                     </tr>
                     <tr
-                        style="
+                      style="
                         font-family: 'Helvetica Neue', Helvetica, Arial,
-                            sans-serif;
+                          sans-serif;
                         box-sizing: border-box;
                         font-size: 14px;
                         margin: 0;
-                        "
+                      "
                     >
-                        <td
+                      <td
                         class="content-block"
                         itemprop="handler"
                         itemscope
                         itemtype="http://schema.org/HttpActionHandler"
                         style="
-                            font-family: 'Helvetica Neue', Helvetica, Arial,
+                          font-family: 'Helvetica Neue', Helvetica, Arial,
                             sans-serif;
-                            box-sizing: border-box;
-                            font-size: 14px;
-                            vertical-align: top;
-                            margin: 0;
-                            padding: 0 0 20px;
+                          box-sizing: border-box;
+                          font-size: 14px;
+                          vertical-align: top;
+                          margin: 0;
+                          padding: 0 0 20px;
                         "
                         valign="top"
-                        >
+                      >
                         <a
-                            href="${process.env.CLIENT_PAGE_URL}/register/confirm?emailVerificationToken=${emailVerificationToken}"
-                            class="btn-primary"
-                            itemprop="url"
-                            style="
+                          href="${process.env.CLIENT_PAGE_URL}/register/confirm?emailVerificationToken=${emailVerificationToken}"
+                          class="btn-primary"
+                          itemprop="url"
+                          style="
                             font-family: 'Helvetica Neue', Helvetica, Arial,
-                                sans-serif;
+                              sans-serif;
                             box-sizing: border-box;
                             font-size: 14px;
                             color: #fff;
@@ -350,60 +357,90 @@ const activationMail = (mailTo, emailVerificationToken, name) =>
                             border-color: #348eda;
                             border-style: solid;
                             border-width: 10px 20px;
-                            "
-                            >Xác nhận tài khoản</a
+                          "
+                          >Xác nhận tài khoản</a
                         >
-                        </td>
+                      </td>
                     </tr>
                     <tr
-                        style="
+                      style="
                         font-family: 'Helvetica Neue', Helvetica, Arial,
-                            sans-serif;
+                          sans-serif;
                         box-sizing: border-box;
                         font-size: 14px;
                         margin: 0;
-                        "
+                      "
                     >
-                        <td
+                      <td
                         class="content-block"
                         style="
-                            font-family: 'Helvetica Neue', Helvetica, Arial,
+                          font-family: 'Helvetica Neue', Helvetica, Arial,
                             sans-serif;
-                            box-sizing: border-box;
-                            font-size: 14px;
-                            vertical-align: top;
-                            margin: 0;
-                            padding: 0 0 20px;
+                          box-sizing: border-box;
+                          font-size: 14px;
+                          vertical-align: top;
+                          margin: 0;
+                          padding: 0 0 20px;
                         "
                         valign="top"
+                      >
+                        <i
+                          ><strong>Lưu ý quan trọng:</strong> Liên kết kích hoạt
+                          này sẽ hết hạn sau ${process.env.EMAIL_VERIFY_EXPIED_TIME_IN_MINUTE} phút kể từ khi bạn
+                          nhận được email. Vui lòng kích hoạt trong khoảng thời
+                          gian này</i
                         >
+                      </td>
+                    </tr>
+                    <tr
+                      style="
+                        font-family: 'Helvetica Neue', Helvetica, Arial,
+                          sans-serif;
+                        box-sizing: border-box;
+                        font-size: 14px;
+                        margin: 0;
+                      "
+                    >
+                      <td
+                        class="content-block"
+                        style="
+                          font-family: 'Helvetica Neue', Helvetica, Arial,
+                            sans-serif;
+                          box-sizing: border-box;
+                          font-size: 14px;
+                          vertical-align: top;
+                          margin: 0;
+                          padding: 0 0 20px;
+                        "
+                        valign="top"
+                      >
                         Trân trọng,
-                        </td>
+                      </td>
                     </tr>
                     <tr>
-                        <td
+                      <td
                         class="content-block"
                         style="
-                            font-family: 'Helvetica Neue', Helvetica, Arial,
+                          font-family: 'Helvetica Neue', Helvetica, Arial,
                             sans-serif;
-                            box-sizing: border-box;
-                            font-size: 14px;
-                            vertical-align: top;
-                            margin: 0;
-                            padding: 0 0 20px;
+                          box-sizing: border-box;
+                          font-size: 14px;
+                          vertical-align: top;
+                          margin: 0;
+                          padding: 0 0 20px;
                         "
                         valign="top"
-                        >
+                      >
                         BlueShop
-                        </td>
+                      </td>
                     </tr>
-                    </table>
+                  </table>
                 </td>
-                </tr>
+              </tr>
             </table>
             <div
-                class="footer"
-                style="
+              class="footer"
+              style="
                 font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
                 box-sizing: border-box;
                 font-size: 14px;
@@ -412,75 +449,75 @@ const activationMail = (mailTo, emailVerificationToken, name) =>
                 color: #999;
                 margin: 0;
                 padding: 20px;
-                "
+              "
             >
-                <table
+              <table
                 width="100%"
                 style="
-                    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-                    box-sizing: border-box;
-                    font-size: 14px;
-                    margin: 0;
+                  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                  box-sizing: border-box;
+                  font-size: 14px;
+                  margin: 0;
                 "
-                >
+              >
                 <tr
-                    style="
+                  style="
                     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
                     box-sizing: border-box;
                     font-size: 14px;
                     margin: 0;
-                    "
+                  "
                 >
-                    <td
+                  <td
                     class="aligncenter content-block"
                     style="
-                        font-family: 'Helvetica Neue', Helvetica, Arial,
+                      font-family: 'Helvetica Neue', Helvetica, Arial,
                         sans-serif;
-                        box-sizing: border-box;
-                        font-size: 12px;
-                        vertical-align: top;
-                        color: #999;
-                        text-align: center;
-                        margin: 0;
-                        padding: 0 0 20px;
+                      box-sizing: border-box;
+                      font-size: 12px;
+                      vertical-align: top;
+                      color: #999;
+                      text-align: center;
+                      margin: 0;
+                      padding: 0 0 20px;
                     "
                     align="center"
                     valign="top"
-                    >
+                  >
                     Đây là email tự động được gửi từ BlueShop
                     <a
-                        href="${process.env.CLIENT_PAGE_URL}"
-                        style="
+                      href="${process.env.CLIENT_PAGE_URL}"
+                      style="
                         font-family: 'Helvetica Neue', Helvetica, Arial,
-                            sans-serif;
+                          sans-serif;
                         box-sizing: border-box;
                         font-size: 12px;
                         color: #999;
                         text-decoration: underline;
                         margin: 0;
-                        "
-                        >BlueShop</a
+                      "
+                      >BlueShop</a
                     >
                     ,vui lòng không trả lời email này.
-                    </td>
+                  </td>
                 </tr>
-                </table>
+              </table>
             </div>
-            </div>
+          </div>
         </td>
         <td
-            style="
+          style="
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             box-sizing: border-box;
             font-size: 14px;
             vertical-align: top;
             margin: 0;
-            "
-            valign="top"
+          "
+          valign="top"
         ></td>
-        </tr>
+      </tr>
     </table>
-    </body>
+  </body>
 </html>
 `;
 

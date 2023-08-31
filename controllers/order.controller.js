@@ -22,7 +22,7 @@ import { scheduleCancelUncofirmedOrder, scheduleCancelUnpaidOrder } from '../cro
 const TYPE_DISCOUNT_MONEY = 1;
 const TYPE_DISCOUNT_PERCENT = 2;
 
-const PAYMENT_DEFAULT_ORDER_INFO = 'Thanh toán đơn hàng tại Fashion Shop';
+const PAYMENT_DEFAULT_ORDER_INFO = 'Thanh toán đơn hàng tại BlueShop';
 
 const getOrdersByUserId = async (req, res) => {
     // Validate the request data using express-validator

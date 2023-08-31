@@ -163,7 +163,7 @@ const register = async (req, res) => {
     //set up message options
     const messageOptions = {
         recipient: user.email,
-        subject: 'Xác thực tài khoản Fashion Shop',
+        subject: 'Xác thực tài khoản BlueShop',
         html: html,
     };
 
