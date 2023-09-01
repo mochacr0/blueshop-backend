@@ -11,14 +11,14 @@ const summary = async (req, res) => {
     const sumRevenue = Order.aggregate([
         {
             $match: {
-                status: { $in: ['delivered', 'completed'] },
+                status: { $in: ['completed'] },
             },
         },
         {
             $group: {
                 _id: null,
                 totalAmount: {
-                    $sum: '$totalProductPrice',
+                    $sum: { $subtract: ['$totalProductPrice', '$totalDiscount'] },
                 },
             },
         },
