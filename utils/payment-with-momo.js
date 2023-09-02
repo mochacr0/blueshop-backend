@@ -1,15 +1,27 @@
 import crypto from 'crypto';
 import { ORDER_MOMO_TRANSACTION_EXPIRY_TIME_IN_MINUTE } from '../utils/orderConstants.js';
+import { parseMethodFromString } from '../utils/MomoMethod.js';
 
 const accessKey = process.env.MOMO_ACCESS_KEY;
 const secretKey = process.env.MOMO_SECRET_KEY;
 const partnerCode = process.env.MOMO_PARTNER_CODE;
-const requestType = 'payWithMethod';
+// const requestType = 'payWithMethod';
 const lang = 'vi';
 var extraData = '';
 var orderGroupId = '';
 var autoCapture = true;
-export const createPaymentBody = (orderId, requestId, orderInfo, amount, redirectUrl, ipnUrl) => {
+
+export const createPaymentBody = (
+    orderId,
+    requestId,
+    orderInfo,
+    amount,
+    redirectUrl,
+    ipnUrl,
+    email,
+    momoPaymentMethod,
+) => {
+    const requestType = parseMethodFromString(momoPaymentMethod);
     var rawSignature =
         'accessKey=' +
         accessKey +
@@ -44,6 +56,9 @@ export const createPaymentBody = (orderId, requestId, orderInfo, amount, redirec
         amount: amount,
         orderId: orderId,
         orderInfo: orderInfo,
+        userInfo: {
+            email,
+        },
         redirectUrl: redirectUrl,
         ipnUrl: ipnUrl,
         lang: lang,

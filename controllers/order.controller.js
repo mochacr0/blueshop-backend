@@ -4,6 +4,7 @@ import Order from '../models/order.model.js';
 import Variant from '../models/variant.model.js';
 import Cart from '../models/cart.model.js';
 import DiscountCode from '../models/discountCode.model.js';
+import User from '../models/user.model.js';
 import { orderQueryParams, validateConstants } from '../utils/searchConstants.js';
 import { validationResult } from 'express-validator';
 import { createCheckStatusBody, createPaymentBody, createRefundTransBody } from '../utils/payment-with-momo.js';
@@ -15,7 +16,12 @@ import Delivery from '../models/delivery.model.js';
 import statusResponseFalse from '../utils/messageMoMo.js';
 import crypto from 'crypto';
 import { MAX_MINUTES_WAITING_TO_PAY, MAX_DAYS_WAITING_FOR_SHOP_CONFIRMATION } from '../utils/orderConstants.js';
-import { PAYMENT_WITH_CASH, PAYMENT_WITH_MOMO } from '../utils/paymentConstants.js';
+import {
+    PAYMENT_WITH_CASH,
+    PAYMENT_WITH_MOMO,
+    PAYMENT_WITH_ATM,
+    PAYMENT_WITH_CREDIT_CARD,
+} from '../utils/paymentConstants.js';
 import { scheduleCancelUncofirmedOrder, scheduleCancelUnpaidOrder } from '../cronJobs/cronJobs.js';
 
 //CONSTANT
@@ -292,6 +298,8 @@ const createOrder = async (req, res, next) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
+    const user = await User.findOne({ _id: req.user._id });
+
     const { shippingAddress, paymentMethod, orderItems, discountCode, note } = req.body;
 
     const size = {
@@ -529,7 +537,7 @@ const createOrder = async (req, res, next) => {
             });
             newPaymentInformation.paymentMethod = paymentMethod;
 
-            if (newPaymentInformation.paymentMethod == PAYMENT_WITH_MOMO) {
+            if (isMomoPaymentMethods(newPaymentInformation.paymentMethod)) {
                 //Create payment information with momo
                 const amount = Number(orderInfor.totalPayment).toFixed();
                 // const redirectUrl = `${process.env.CLIENT_PAGE_URL}/order/${orderInfor._id}/waiting-payment`;
@@ -544,6 +552,8 @@ const createOrder = async (req, res, next) => {
                     amount,
                     redirectUrl,
                     ipnUrl,
+                    user.email,
+                    newPaymentInformation.paymentMethod,
                 );
                 const config = {
                     headers: {
@@ -554,7 +564,7 @@ const createOrder = async (req, res, next) => {
                 await momo_Request
                     .post('/create', requestBody, config)
                     .then((response) => {
-                        newPaymentInformation.payUrl = response.data.shortLink;
+                        newPaymentInformation.payUrl = response.data.payUrl;
                         newPaymentInformation.requestId = requestId;
                     })
                     .catch(async (error) => {
@@ -613,7 +623,7 @@ const createOrder = async (req, res, next) => {
 
             //set order expiry time
             let now = new Date();
-            if (newPaymentInformation.paymentMethod == PAYMENT_WITH_MOMO) {
+            if (isMomoPaymentMethods(newPaymentInformation.paymentMethod)) {
                 now.setMinutes(now.getMinutes() + MAX_MINUTES_WAITING_TO_PAY);
             } else {
                 now.setDate(now.getDate() + MAX_DAYS_WAITING_FOR_SHOP_CONFIRMATION);
@@ -628,7 +638,7 @@ const createOrder = async (req, res, next) => {
             }
 
             //schedule job
-            if (newOrder.paymentInformation.paymentMethod == PAYMENT_WITH_MOMO) {
+            if (isMomoPaymentMethods(newOrder.paymentInformation.paymentMethod)) {
                 scheduleCancelUnpaidOrder(newOrder);
             } else if (newOrder.paymentInformation.paymentMethod == PAYMENT_WITH_CASH) {
                 scheduleCancelUncofirmedOrder(newOrder);
@@ -720,7 +730,7 @@ const confirmDelivery = async (req, res) => {
     }
     let cod_amount = 0;
     if (!order.paymentInformation.paid) {
-        if (order.paymentInformation.paymentMethod == PAYMENT_WITH_MOMO) {
+        if (isMomoPaymentMethods(order.paymentInformation.paymentMethod)) {
             res.status(400);
             throw new Error('Đơn hàng có phương thức thanh toán là MoMo nhưng khách hàng chưa thành toán');
         }
@@ -1012,9 +1022,10 @@ const getOrderPaymentStatus = async (req, res) => {
 };
 
 const refundOrderInCancel = async (paymentInformation) => {
-    if (paymentInformation.paymentMethod != PAYMENT_WITH_MOMO || !paymentInformation.paid) {
+    if (!isMomoPaymentMethods(paymentInformation.paymentMethod)) {
         return;
     }
+    console.log('1');
     //Create payment information with momo
     // const requestBody = createRefundTransBody(orderId, order.paymentInformation.requestId);
     const requestBody = createRefundTransBody(
@@ -1033,6 +1044,7 @@ const refundOrderInCancel = async (paymentInformation) => {
     const result = await momo_Request
         .post('/refund', requestBody, config)
         .then(async (response) => {
+            console.log('2');
             paymentInformation.status = { state: 'refunded', description: 'Hoàn tiền thành công' };
             await paymentInformation.save();
             return;
@@ -1269,6 +1281,14 @@ const cancelDelivery = async (order, session) => {
             throw new Error('Gặp lỗi khi hủy đơn giao hàng của đơn vị Giao Hàng Nhanh');
         }
     }
+};
+
+const isMomoPaymentMethods = (paymentMethod) => {
+    return (
+        paymentMethod == PAYMENT_WITH_MOMO ||
+        paymentMethod == PAYMENT_WITH_ATM ||
+        paymentMethod == PAYMENT_WITH_CREDIT_CARD
+    );
 };
 
 const orderController = {

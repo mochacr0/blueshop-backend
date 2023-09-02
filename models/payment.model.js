@@ -1,4 +1,10 @@
 import mongoose from 'mongoose';
+import {
+    PAYMENT_WITH_CASH,
+    PAYMENT_WITH_MOMO,
+    PAYMENT_WITH_ATM,
+    PAYMENT_WITH_CREDIT_CARD,
+} from '../utils/paymentConstants.js';
 
 const refundTranSchema = mongoose.Schema({
     orderId: {
@@ -59,8 +65,8 @@ const paymentSchema = mongoose.Schema(
         paymentMethod: {
             type: String,
             required: true,
-            enum: [1, 2],
-            default: 1,
+            enum: [PAYMENT_WITH_CASH, PAYMENT_WITH_MOMO, PAYMENT_WITH_ATM, PAYMENT_WITH_CREDIT_CARD],
+            default: PAYMENT_WITH_CASH,
         },
         payUrl: {
             type: String,
