@@ -3,21 +3,26 @@ import Banner from '../models/banner.model.js';
 import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
 import { validationResult } from 'express-validator';
 import { ObjectId } from 'mongodb';
+import {
+    InternalServerError,
+    InvalidDataError,
+    ItemNotFoundError,
+    UnprocessableContentError,
+} from '../utils/errors.js';
 
 const getBanners = async (req, res) => {
     const getBanners = Banner.find({ type: 'banner' }).sort({ _id: -1 }).lean();
     const getSliders = Banner.find({ type: 'slider' }).sort({ _id: -1 }).lean();
     const [banners, sliders] = await Promise.all([getBanners, getSliders]);
-    return res.status(200).json({ message: 'Success', data: { banners, sliders } });
+    return res.json({ message: 'Success', data: { banners, sliders } });
 };
 
 const getBannerById = async (req, res) => {
     const banner = await Banner.findOne({ _id: req.params.id }).lean();
     if (!banner) {
-        res.status(404);
-        throw new Error('Banner không tồn tại');
+        throw new ItemNotFoundError('Banner không tồn tại');
     }
-    return res.status(200).json({ message: 'Success', data: { banner } });
+    return res.json({ message: 'Success', data: { banner } });
 };
 
 const createBanner = async (req, res) => {
@@ -25,7 +30,7 @@ const createBanner = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const { title, linkTo, type } = req.body;
     const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : '';
@@ -33,12 +38,11 @@ const createBanner = async (req, res) => {
     if (imageFile && imageFile.trim() !== '') {
         const uploadImage = await cloudinaryUpload(imageFile, 'FashionShop/banners');
         if (!uploadImage) {
-            throw new Error('Some banners were not uploaded due to an unknown error');
+            throw new Error('Xảy ra lỗi khi upload ảnh');
         }
         image = uploadImage.secure_url;
     } else {
-        res.status(400);
-        throw new Error('Hình ảnh banner không được để trống');
+        throw new InvalidDataError('Hình ảnh banner không được để trống');
     }
 
     const banner = new Banner({
@@ -48,7 +52,7 @@ const createBanner = async (req, res) => {
         type,
     });
     const newBanner = await banner.save();
-    return res.status(201).json({ message: 'Thêm banner thành công', data: { newBanner } });
+    return res.json({ message: 'Thêm banner thành công', data: { newBanner } });
 };
 
 const updateBanner = async (req, res) => {
@@ -56,17 +60,18 @@ const updateBanner = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const { title, image, linkTo, updatedVersion } = req.body;
 
     const banner = await Banner.findOne({ _id: req.params.id });
     if (!banner) {
-        return res.status(404).json({ message: 'Banner không tồn tại' });
+        throw new ItemNotFoundError('Banner không tồn tại');
     }
     if (banner.updatedVersion != updatedVersion) {
-        res.status(400);
-        throw new Error('Ảnh bìa vừa được cập nhật thông tin, vui lòng làm mới lại trang để lấy thông tin mới nhất');
+        throw new UnprocessableContentError(
+            'Ảnh bìa vừa được cập nhật thông tin, vui lòng làm mới lại trang để lấy thông tin mới nhất',
+        );
     }
     banner.updatedVersion = Number(banner.updatedVersion) + 1;
     const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : '';
@@ -74,20 +79,19 @@ const updateBanner = async (req, res) => {
     if (imageFile && imageFile.trim() !== '') {
         const uploadImage = await cloudinaryUpload(imageFile, 'FashionShop/banners');
         if (!uploadImage) {
-            throw new Error('Some banners were not uploaded due to an unknown error');
+            throw new InternalServerError('Xảy ra lỗi khi upload ảnh');
         }
         imageUrl = uploadImage.secure_url;
     } else if (image && image.trim() !== '' && banner.image != image) {
         if (banner.image !== image) {
             const uploadImage = await cloudinaryUpload(image, 'FashionShop/banners');
             if (!uploadImage) {
-                throw new Error('Some banners were not uploaded due to an unknown error');
+                throw new InternalServerError('Xảy ra lỗi khi upload ảnh');
             }
             imageUrl = uploadImage.secure_url;
         } else imageUrl = banner.image;
     } else {
-        res.status(400);
-        throw new Error('Hình ảnh banner không được để trống');
+        throw new InvalidDataError('Hình ảnh banner không được để trống');
     }
     if (imageUrl != banner.image) {
         let url = banner.image;
@@ -99,24 +103,18 @@ const updateBanner = async (req, res) => {
     banner.image = imageUrl || banner.image;
     banner.linkTo = linkTo || banner.linkTo;
     const updateBanner = await banner.save();
-    res.status(200).json({ message: 'Cập nhật banner thành công', data: { updateBanner } });
+    res.json({ message: 'Cập nhật banner thành công', data: { updateBanner } });
 };
 
 const deleteBanner = async (req, res) => {
-    const bannerId = req.params.id || null;
-    if (!ObjectId.isValid(bannerId)) {
-        res.status(400);
-        throw new Error('ID không hợp lệ');
-    }
     const deletedBanner = await Banner.findByIdAndDelete(req.params.id).lean();
     if (!deletedBanner) {
-        res.status(404);
-        throw new Error('Banner không tồn tại');
+        throw new ItemNotFoundError('Banner không tồn tại');
     }
     let url = deletedBanner.image;
     const publicId = url?.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'));
     await cloudinaryRemove('FashionShop/banners/' + publicId);
-    res.status(200).json({ message: 'Xóa banner thành công' });
+    res.json({ message: 'Xóa banner thành công' });
 };
 
 const bannerController = {

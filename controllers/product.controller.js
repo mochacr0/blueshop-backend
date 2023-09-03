@@ -10,6 +10,12 @@ import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
 import { Result, validationResult } from 'express-validator';
 import slug from 'slug';
 import { extractKeywords } from '../utils/extractKeywords.js';
+import {
+    InternalServerError,
+    InvalidDataError,
+    ItemNotFoundError,
+    UnprocessableContentError,
+} from '../utils/errors.js';
 
 const getProducts = async (req, res) => {
     const limit = parseInt(req.query.limit) > 0 ? parseInt(req.query.limit) : 12;
@@ -85,7 +91,7 @@ const getProducts = async (req, res) => {
     const count = await Product.countDocuments(productFilter);
     //Check if product match keyword
     if (count == 0) {
-        res.status(200).json({
+        res.json({
             message: 'Success',
             data: { products: [], page: 0, pages: 0, total: 0 },
         });
@@ -170,7 +176,7 @@ const getProductsByAdmin = async (req, res) => {
     const count = await Product.countDocuments(productFilter);
     //Check if product match keyword
     if (count == 0) {
-        res.status(200).json({
+        res.json({
             message: 'Success',
             data: { products: [], page: 0, pages: 0, total: 0 },
         });
@@ -183,7 +189,7 @@ const getProductsByAdmin = async (req, res) => {
         .populate('category')
         .populate('variants')
         .lean();
-    res.status(200).json({
+    res.json({
         message: 'Success',
         data: { products, page, pages: Math.ceil(count / limit), total: count },
     });
@@ -212,7 +218,7 @@ const getProductSearchResults = async (req, res) => {
         ...keyword,
     };
     const keywords = await Product.find(productFilter).limit(limit).select('name').lean();
-    res.status(200).json({ message: 'Success', data: { keywords } });
+    res.json({ message: 'Success', data: { keywords } });
 };
 
 const getProductRecommend = async (req, res) => {
@@ -252,7 +258,7 @@ const getProductRecommend = async (req, res) => {
     const count = await Product.countDocuments(productFilter);
     //Check if product match keyword
     if (count == 0) {
-        res.status(200).json({
+        res.json({
             message: 'Success',
             data: { products: [], page: 0, pages: 0, total: 0 },
         });
@@ -311,7 +317,7 @@ const getProductRecommend = async (req, res) => {
 //     const count = await Product.countDocuments(productFilter);
 //     //Check if product match keyword
 //     if (count == 0) {
-//         res.status(200).json({
+//         res.json({
 //             message: 'Success',
 //             data: { products: [], page: 0, pages: 0, total: 0 },
 //         });
@@ -332,7 +338,7 @@ const getProductRecommend = async (req, res) => {
 //         // .sort({ sort })
 //         .exec()
 //         .then((results) => {
-//             res.status(200).json({
+//             res.json({
 //                 message: 'Success',
 //                 data: { products: results, page, pages: Math.ceil(count / limit), total: count },
 //             });
@@ -352,10 +358,9 @@ const getProductBySlug = async (req, res) => {
     const slug = req.params.slug.toString().trim() || '';
     const product = await Product.findOne({ slug: slug }).populate(['variants', 'category']).lean();
     if (!product) {
-        res.status(404);
-        throw new Error('Sản phẩm không tồn tại');
+        throw new ItemNotFoundError('Sản phẩm không tồn tại');
     }
-    res.status(200).json({ message: 'Success', data: { product } });
+    res.json({ message: 'Success', data: { product } });
 };
 
 const getProductById = async (req, res) => {
@@ -363,14 +368,13 @@ const getProductById = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const product = await Product.findOne({ _id: req.params.id }).populate(['variants', 'category']).lean();
     if (!product) {
-        res.status(404);
-        throw new Error('Sản phẩm không tồn tại');
+        throw new ItemNotFoundError('Sản phẩm không tồn tại');
     }
-    res.status(200).json({ message: 'Success', data: { product } });
+    res.json({ message: 'Success', data: { product } });
 };
 
 const createProduct = async (req, res, next) => {
@@ -387,7 +391,7 @@ const createProduct = async (req, res, next) => {
             });
         }
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     let { name, description, category, brand, weight, length, height, width } = req.body;
     const variants = JSON.parse(req.body.variants) || [];
@@ -398,44 +402,35 @@ const createProduct = async (req, res, next) => {
     const findCategory = Category.findOne({ _id: category }).lean();
     const [existedProduct, existedCategory] = await Promise.all([findProduct, findCategory]);
     if (existedProduct) {
-        res.status(400);
-        throw new Error('Tên sản phẩm đã tồn tại');
+        throw new InvalidDataError('Tên sản phẩm đã tồn tại');
     }
     if (!existedCategory) {
-        res.status(400);
-        throw new Error('Thể loại không tồn tại');
+        throw new UnprocessableContentError('Thể loại không tồn tại');
     }
 
     const variantsValue = {};
     variants.map((variant) => {
         if (!variant.price) {
-            res.status(400);
-            throw new Error('Giá của các sản phẩm không được để trống');
+            throw new InvalidDataError('Giá của các sản phẩm không được để trống');
         }
         if (Number(variant.price) == NaN) {
-            res.status(400);
-            throw new Error('Giá của các sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0');
+            throw new InvalidDataError('Giá của các sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0');
         }
         if (!variant.quantity) {
-            res.status(400);
-            throw new Error('Giá của các sản phẩm không được để trống');
+            throw new InvalidDataError('Giá của các sản phẩm không được để trống');
         }
         if (Number(variant.quantity) == NaN) {
-            res.status(400);
-            throw new Error('Giá của các sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0');
+            throw new InvalidDataError('Giá của các sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0');
         }
         if (!variant.attributes) {
-            res.status(400);
-            throw new Error('Danh sách thuộc tính các biến thể không được để trống');
+            throw new InvalidDataError('Danh sách thuộc tính các biến thể không được để trống');
         }
         variant.attributes.map((attr) => {
             if (!attr.name || attr.name.trim() == '') {
-                res.status(400);
-                throw new Error('Tên các thuộc tính của biến thể sản phẩm không được để trống');
+                throw new InvalidDataError('Tên các thuộc tính của biến thể sản phẩm không được để trống');
             }
             if (!attr.value || attr.value.trim() == '') {
-                res.status(400);
-                throw new Error('Giá trị thuộc tính của các biến thể sản phẩm không được để trống');
+                throw new InvalidDataError('Giá trị thuộc tính của các biến thể sản phẩm không được để trống');
             }
             if (!variantsValue[`${attr.name}`]) {
                 variantsValue[`${attr.name}`] = [];
@@ -448,8 +443,7 @@ const createProduct = async (req, res, next) => {
         return accumulator * variantsSet.size;
     }, 1);
     if (countVariant < variants.length) {
-        res.status(400);
-        throw new Error('Giá trị của các biến thể không được trùng nhau');
+        throw new InvalidDataError('Giá trị của các biến thể không được trùng nhau');
     }
     //generate slug
     let generatedSlug = slug(name);
@@ -516,8 +510,7 @@ const createProduct = async (req, res, next) => {
                     const uploadListImage = imageFile.map(async (image) => {
                         const uploadImage = await cloudinaryUpload(image, 'FashionShop/products');
                         if (!uploadImage) {
-                            res.status(502);
-                            throw new Error('Xảy ra lỗi trong quá trình đăng tải hình ảnh sản phẩm');
+                            throw new InternalServerError('Xảy ra lỗi trong quá trình đăng tải hình ảnh sản phẩm');
                         }
                         return uploadImage.secure_url;
                     });
@@ -525,8 +518,7 @@ const createProduct = async (req, res, next) => {
                     images.push(...imageList);
                 }
                 if (images.length === 0) {
-                    res.status(400);
-                    throw new Error('Thiếu hình ảnh. Vui lòng đăng tải ít nhất 1 hình ảnh');
+                    throw new InvalidDataError('Thiếu hình ảnh. Vui lòng đăng tải ít nhất 1 hình ảnh');
                 }
                 product.images = images;
                 product.variants = variantIds;
@@ -536,7 +528,7 @@ const createProduct = async (req, res, next) => {
             }
             const newProduct = await (await product.save({ session })).populate('variants');
 
-            res.status(201).json({ message: 'Thêm sản phẩm thành công', data: { newProduct } });
+            res.json({ message: 'Thêm sản phẩm thành công', data: { newProduct } });
         }, transactionOptions);
     } catch (error) {
         next(error);
@@ -553,13 +545,13 @@ const updateProduct = async (req, res, next) => {
             await req.files.map(async (image) => {
                 fs.unlink(image.path, (error) => {
                     if (error) {
-                        throw new Error(error);
+                        throw new InternalServerError(error);
                     }
                 });
             });
         }
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
 
     const { name, description, category, brand, weight, length, height, width, updatedVersion } = req.body;
@@ -573,34 +565,27 @@ const updateProduct = async (req, res, next) => {
     let count = 0;
     variants.map((variant) => {
         if (!variant.price) {
-            res.status(400);
-            throw new Error('Giá của các sản phẩm không được để trống');
+            throw new InvalidDataError('Giá của các sản phẩm không được để trống');
         }
         if (Number(variant.price) == NaN) {
-            res.status(400);
-            throw new Error('Giá của các sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0');
+            throw new InvalidDataError('Giá của các sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0');
         }
         if (!variant.quantity) {
-            res.status(400);
-            throw new Error('Giá của các sản phẩm không được để trống');
+            throw new InvalidDataError('Giá của các sản phẩm không được để trống');
         }
         if (Number(variant.quantity) == NaN) {
-            res.status(400);
-            throw new Error('Giá của các sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0');
+            throw new InvalidDataError('Giá của các sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0');
         }
         if (!variant.attributes) {
-            res.status(400);
-            throw new Error('Danh sách thuộc tính các biến thể không được để trống');
+            throw new InvalidDataError('Danh sách thuộc tính các biến thể không được để trống');
         }
         if (variant.status != -1) {
             variant.attributes.map((attr) => {
                 if (!attr.name || attr.name.trim() == '') {
-                    res.status(400);
-                    throw new Error('Tên các thuộc tính của biến thể sản phẩm không được để trống');
+                    throw new InvalidDataError('Tên các thuộc tính của biến thể sản phẩm không được để trống');
                 }
                 if (!attr.value || attr.value.trim() == '') {
-                    res.status(400);
-                    throw new Error('Giá trị thuộc tính của các biến thể sản phẩm không được để trống');
+                    throw new InvalidDataError('Giá trị thuộc tính của các biến thể sản phẩm không được để trống');
                 }
                 if (!variantsValue[`${attr.name}`]) {
                     variantsValue[`${attr.name}`] = [];
@@ -615,18 +600,17 @@ const updateProduct = async (req, res, next) => {
         return accumulator * variantsSet.size;
     }, 1);
     if (countVariant < count) {
-        res.status(400);
-        throw new Error('Giá trị của các biến thể không được trùng nhau');
+        throw new InvalidDataError('Giá trị của các biến thể không được trùng nhau');
     }
 
     const currentProduct = await Product.findOne({ _id: req.params.id });
     if (!currentProduct) {
-        res.status(404);
-        throw new Error('Sản phẩm không tồn tại');
+        throw new ItemNotFoundError('Sản phẩm không tồn tại');
     }
     if (currentProduct.updatedVersion != updatedVersion) {
-        res.status(400);
-        throw new Error('Sản phẩm vừa được cập nhật thông tin, vui lòng làm mới lại trang để lấy thông tin mới nhất');
+        throw new UnprocessableContentError(
+            'Sản phẩm vừa được cập nhật thông tin, vui lòng làm mới lại trang để lấy thông tin mới nhất',
+        );
     }
     currentProduct.updatedVersion = Number(currentProduct.updatedVersion) + 1;
     const session = await mongoose.startSession();
@@ -644,8 +628,7 @@ const updateProduct = async (req, res, next) => {
                 const existedProduct = await Product.exists({ name });
                 if (existedProduct) {
                     await session.abortTransaction();
-                    res.status(400);
-                    throw new Error('Tên sản phẩm đã tồn tại');
+                    throw new InvalidDataError('Tên sản phẩm đã tồn tại');
                 }
                 currentProduct.name = name;
                 //generate slug
@@ -665,8 +648,7 @@ const updateProduct = async (req, res, next) => {
                 const existedCategory = await Category.findById(category).lean();
                 if (!existedCategory) {
                     await session.abortTransaction();
-                    res.status(400);
-                    throw new Error('Thể loại không tồn tại');
+                    throw new UnprocessableContentError('Thể loại không tồn tại');
                 }
                 currentProduct.category = existedCategory._id;
                 generateKeywords.push(existedCategory.name, existedCategory.slug);
@@ -711,8 +693,9 @@ const updateProduct = async (req, res, next) => {
                         const variantUpdate = await Variant.findById(variant._id);
                         if (!variantUpdate) {
                             await session.abortTransaction();
-                            res.status(404);
-                            throw new Error(`Mã biến thể"${variant._id}" cần cập nhật không tồn tại`);
+                            throw new UnprocessableContentError(
+                                `Mã biến thể"${variant._id}" cần cập nhật không tồn tại`,
+                            );
                         } else {
                             variantUpdate.attributes = variant.attributes || variantUpdate.attributes;
                             variantUpdate.price = variant.price || variantUpdate.price;
@@ -728,21 +711,18 @@ const updateProduct = async (req, res, next) => {
                         const variantUpdate = await Variant.findById(variant._id);
                         if (!variantUpdate) {
                             await session.abortTransaction();
-                            res.status(404);
-                            throw new Error(`Mã biến thể"${variant._id}" cần xóa không tồn tại`);
+                            throw new UnprocessableContentError(`Mã biến thể"${variant._id}" cần xóa không tồn tại`);
                         }
                         await variantUpdate.remove({ session });
                     } else {
                         await session.abortTransaction();
-                        res.status(400);
-                        throw new Error(
+                        throw new InvalidDataError(
                             `Mã biến thể "${variant._id}" cần xóa không thuộc danh sách các biến thể của sản phẩm này`,
                         );
                     }
                 } else {
                     await session.abortTransaction();
-                    res.status(400);
-                    throw new Error('Tồn tại biến thể sản phẩm không hợp lệ');
+                    throw new InvalidDataError('Tồn tại biến thể sản phẩm không hợp lệ');
                 }
             });
             await Promise.all(variantUpdates);
@@ -760,8 +740,7 @@ const updateProduct = async (req, res, next) => {
                 const uploadListImage = imageFile.map(async (image) => {
                     const uploadImage = await cloudinaryUpload(image, 'FashionShop/products');
                     if (!uploadImage) {
-                        res.status(502);
-                        throw new Error('Xảy ra lỗi trong quá trình đăng tải hình ảnh sản phẩm');
+                        throw new InternalServerError('Xảy ra lỗi trong quá trình đăng tải hình ảnh sản phẩm');
                     }
                     return uploadImage.secure_url;
                 });
@@ -770,13 +749,12 @@ const updateProduct = async (req, res, next) => {
             }
             if (updateImages.length === 0) {
                 await session.abortTransaction();
-                res.status(400);
-                throw new Error('Thiếu hình ảnh. Vui lòng đăng tải ít nhất 1 hình ảnh của sản phẩm');
+                throw new InvalidDataError('Thiếu hình ảnh. Vui lòng đăng tải ít nhất 1 hình ảnh của sản phẩm');
             }
             currentProduct.images = updateImages;
             const updatedProduct = await (await currentProduct.save({ session })).populate(['variants', 'category']);
 
-            res.status(200).json({ message: 'Cập nhật Sản phẩm thành công', data: { updatedProduct } });
+            res.json({ message: 'Cập nhật Sản phẩm thành công', data: { updatedProduct } });
         }, transactionOptions);
     } catch (error) {
         next(error);
@@ -790,14 +768,13 @@ const reviewProduct = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const { rating, content } = req.body;
     const productId = req.params.id || '';
     const product = await Product.findOne({ _id: productId });
     if (!product) {
-        res.status(404);
-        throw new Error('Sản phẩm không tồn tại');
+        throw new ItemNotFoundError('Sản phẩm không tồn tại');
     }
     const order = await Order.findOne({
         user: req.user._id,
@@ -806,8 +783,7 @@ const reviewProduct = async (req, res) => {
         'orderItems.isAbleToReview': true,
     });
     if (!order) {
-        res.status(400);
-        throw new Error('Bạn cần mua sản phẩm này để có thể đánh giá nó');
+        throw new InvalidDataError('Bạn cần mua sản phẩm này để có thể đánh giá nó');
     }
     order.orderItems.map((orderItem, index) => {
         if (orderItem.product.toString() == product._id.toString()) {
@@ -827,57 +803,54 @@ const reviewProduct = async (req, res) => {
 
     await Promise.all([product.save(), order.save()]);
 
-    res.status(201).json({ message: 'Đánh giá thành công' });
+    res.json({ message: 'Đánh giá thành công' });
 };
 const hideProduct = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const productId = req.params.id || null;
     const disabledProduct = await Product.findOneAndUpdate({ _id: productId }, { disabled: true });
     if (!disabledProduct) {
-        res.status(404);
-        throw new Error('Sản phẩm không tồn tại!');
+        throw new ItemNotFoundError('Sản phẩm không tồn tại!');
     }
     const disabledVariant = await Variant.updateMany({ product: productId }, { $set: { disabled: true } });
 
-    res.status(200).json({ message: 'Ẩn sản phẩm thành công' });
+    res.json({ message: 'Ẩn sản phẩm thành công' });
 };
 const unhideProduct = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const productId = req.params.id || null;
     const disabledProduct = await Product.findOneAndUpdate({ _id: productId }, { disabled: false });
     if (!disabledProduct) {
-        res.status(404);
-        throw new Error('Sản phẩm không tồn tại!');
+        throw new ItemNotFoundError('Sản phẩm không tồn tại!');
     }
     const disabledVariant = await Variant.updateMany({ product: productId }, { $set: { disabled: false } });
 
-    res.status(200).json({ message: 'Bỏ ẩn sản phẩm thành công' });
+    res.json({ message: 'Bỏ ẩn sản phẩm thành công' });
 };
 const restoreProduct = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const productId = req.params.id || null;
     const deletedProduct = await Product.findOneAndUpdate({ _id: productId }, { deleted: false });
     if (!deletedProduct) {
-        res.status(404);
-        throw new Error('Sản phẩm không tồn tại');
+        throw new ItemNotFoundError('Sản phẩm không tồn tại');
     }
     const deletedVariant = await Variant.updateMany({ product: productId }, { $set: { deleted: false } });
-    res.status(200).json({
+    res.json({
         message: 'Khôi phục sản phẩm thành công',
     });
 };
@@ -886,16 +859,15 @@ const deleteProduct = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const productId = req.params.id || null;
     const deletedProduct = await Product.findOneAndUpdate({ _id: productId }, { deleted: true });
     if (!deletedProduct) {
-        res.status(404);
-        throw new Error('Sản phẩm không tồn tại');
+        throw new ItemNotFoundError('Sản phẩm không tồn tại');
     }
     const deletedVariant = await Variant.updateMany({ product: productId }, { $set: { deleted: true } });
-    res.status(200).json({
+    res.json({
         message:
             'Xóa sản phẩm thành công. Bạn có thể khôi phục trong vòng 30 ngày trước khi sản phẩm này bị xóa hoàn toàn',
     });

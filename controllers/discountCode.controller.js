@@ -4,6 +4,8 @@ import Variant from '../models/variant.model.js';
 import { validationResult } from 'express-validator';
 import { ObjectId } from 'mongodb';
 import User from '../models/user.model.js';
+import { InvalidDataError, ItemNotFoundError, UnprocessableContentError } from '../utils/errors.js';
+
 //CONSTANT
 const TYPE_DISCOUNT_MONEY = 1;
 const TYPE_DISCOUNT_PERCENT = 2;
@@ -35,7 +37,7 @@ const getDiscountCode = async (req, res) => {
         });
     }
 
-    return res.status(200).json({ message: 'Success', data: { discountCode: discountCodes } });
+    return res.json({ message: 'Success', data: { discountCode: discountCodes } });
 };
 
 const getDiscountCodeById = async (req, res) => {
@@ -43,26 +45,24 @@ const getDiscountCodeById = async (req, res) => {
 
     const discountCode = await DiscountCode.findOne({ _id: discountCodeId }).lean();
     if (!discountCode) {
-        res.status(404);
-        throw new Error('Mã giảm giá không tồn tại');
+        throw new ItemNotFoundError('Mã giảm giá không tồn tại');
     }
-    return res.status(200).json({ message: 'Success', data: { discountCode: discountCode } });
+    return res.json({ message: 'Success', data: { discountCode: discountCode } });
 };
 const getDiscountCodeByCode = async (req, res) => {
     const code = req.params.code || '';
     const discountCode = await DiscountCode.findOne({ code: code }).lean();
     if (!discountCode) {
-        res.status(404);
-        throw new Error('Mã giảm giá không tồn tại');
+        throw new ItemNotFoundError('Mã giảm giá không tồn tại');
     }
-    return res.status(200).json({ message: 'Success', data: { discountCode: discountCode } });
+    return res.json({ message: 'Success', data: { discountCode: discountCode } });
 };
 const createDiscountCode = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const {
         name,
@@ -80,8 +80,7 @@ const createDiscountCode = async (req, res) => {
     } = req.body;
     const discountCodeExists = await DiscountCode.exists({ code: code });
     if (discountCodeExists) {
-        res.status(400);
-        throw new Error('Mã giảm giá đã tồn tại');
+        throw new InvalidDataError('Mã giảm giá đã tồn tại');
     }
 
     const discountCode = new DiscountCode({
@@ -102,7 +101,7 @@ const createDiscountCode = async (req, res) => {
         discountCode.maximumDiscount = discount;
     }
     const newDiscountCode = await discountCode.save();
-    return res.status(201).json({ message: 'Mã giảm giá đã được thêm', data: { newDiscountCode } });
+    return res.json({ message: 'Mã giảm giá đã được thêm', data: { newDiscountCode } });
 };
 
 const updateDiscountCode = async (req, res) => {
@@ -110,7 +109,7 @@ const updateDiscountCode = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const {
         name,
@@ -132,19 +131,17 @@ const updateDiscountCode = async (req, res) => {
 
     const currentDiscountCode = await DiscountCode.findOne({ _id: discountCodeId });
     if (!currentDiscountCode) {
-        return res.status(404).json({ message: 'Mã giảm giá không tồn tại' });
+        throw new ItemNotFoundError('Mã giảm giá không tồn tại');
     }
     if (currentDiscountCode.code != code) {
         const discountCodeExists = await DiscountCode.exists({ code: code });
         if (discountCodeExists) {
-            res.status(400);
-            throw new Error('Mã giảm giá đã tồn tại');
+            throw new InvalidDataError('Mã giảm giá đã tồn tại');
         }
         currentDiscountCode.code = code;
     }
     if (currentDiscountCode.updatedVersion != updatedVersion) {
-        res.status(400);
-        throw new Error(
+        throw new InvalidDataError(
             'Mã giảm giá vừa được cập nhật thông tin, vui lòng làm mới lại trang để lấy thông tin mới nhất',
         );
     }
@@ -167,9 +164,7 @@ const updateDiscountCode = async (req, res) => {
     currentDiscountCode.applicableProducts = applicableProducts || currentDiscountCode.applicableProducts;
 
     const updateDiscountCode = await currentDiscountCode.save();
-    return res
-        .status(200)
-        .json({ success: true, message: 'Cập nhật mã giảm giá thành công', data: { updateDiscountCode } });
+    return res.json({ success: true, message: 'Cập nhật mã giảm giá thành công', data: { updateDiscountCode } });
 };
 
 const discountCalculation = async (req, res) => {
@@ -177,37 +172,31 @@ const discountCalculation = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const { orderItems, discountCode } = req.body;
     const discountCodeExist = await DiscountCode.findOne({ code: String(discountCode), disabled: false });
     if (!discountCodeExist) {
-        res.status(400);
-        throw new Error('Mã giảm giá không tồn tại');
+        throw new UnprocessableContentError('Mã giảm giá không tồn tại');
     }
     if (discountCodeExist.startDate > new Date()) {
-        res.status(400);
-        throw new Error(`Mã giảm giá có hiệu lực từ ngày ${Date(discountCode.startDate)}`);
+        throw new InvalidDataError(`Mã giảm giá có hiệu lực từ ngày ${Date(discountCode.startDate)}`);
     }
     if (discountCodeExist.endDate < new Date()) {
-        res.status(400);
-        throw new Error('Mã giảm giá đã hết hạn');
+        throw new InvalidDataError('Mã giảm giá đã hết hạn');
     }
     if (discountCodeExist.isUsageLimit && discountCodeExist.usageLimit <= discountCodeExist.used) {
-        res.status(400);
-        throw new Error('Mã giảm giá đã được sử dụng hết');
+        throw new InvalidDataError('Mã giảm giá đã được sử dụng hết');
     }
     if (discountCodeExist.userUseMaximum > 1) {
         const countUser = discountCodeExist.usedBy.filter((item) => {
             return item.toString() == req.user._id.toString();
         });
         if (countUser.length >= discountCodeExist.userUseMaximum) {
-            res.status(400);
-            throw new Error('Bạn đã hết lượt sử dụng mã giảm giá này');
+            throw new InvalidDataError('Bạn đã hết lượt sử dụng mã giảm giá này');
         }
     } else if (discountCodeExist.usedBy.includes(req.user._id)) {
-        res.status(400);
-        throw new Error('Bạn đã hết lượt sử dụng mã giảm giá này');
+        throw new InvalidDataError('Bạn đã hết lượt sử dụng mã giảm giá này');
     }
 
     let totalProductPrice = 0;
@@ -220,7 +209,7 @@ const discountCalculation = async (req, res) => {
                 deleted: false,
             }).populate('product');
             if (!orderedVariant || !orderedVariant.product?._id) {
-                throw new Error(`Sản phẩm có ID "${orderItem.variant}" không tồn tại`);
+                throw new UnprocessableContentError(`Sản phẩm có ID "${orderItem.variant}" không tồn tại`);
             }
             totalProductPrice += orderedVariant.priceSale * orderItem.quantity;
 
@@ -244,8 +233,7 @@ const discountCalculation = async (req, res) => {
             }
         });
         if (count == 0) {
-            res.status(400);
-            throw new Error('Mã giảm giá không được áp dụng cho các sản phẩm này');
+            throw new InvalidDataError('Mã giảm giá không được áp dụng cho các sản phẩm này');
         }
     }
     let discount = 0;
@@ -261,7 +249,7 @@ const discountCalculation = async (req, res) => {
             discount = discountCodeExist.maximumDiscount;
         }
     }
-    res.status(200).json({
+    res.json({
         message: 'Success',
         data: {
             totalDiscount: discount,
@@ -272,17 +260,12 @@ const discountCalculation = async (req, res) => {
 
 const deleteDiscountCode = async (req, res) => {
     const discountCodeId = req.params.id || null;
-    if (!ObjectId.isValid(discountCodeId)) {
-        res.status(400);
-        throw new Error('ID mã giảm giá không hợp lệ');
-    }
-    await User.updateMany({ $pull: { discountCode: discountCodeId } });
     const deletedDiscountCode = await DiscountCode.findByIdAndDelete(discountCodeId);
     if (!deletedDiscountCode) {
-        res.status(404);
-        throw new Error('Mã giảm giá không tồn tại');
+        throw new ItemNotFoundError('Mã giảm giá không tồn tại');
     }
-    res.status(200).json({ message: 'Xóa mã giảm giá thành công' });
+    await User.updateMany({ $pull: { discountCode: discountCodeId } });
+    res.json({ message: 'Xóa mã giảm giá thành công' });
 };
 
 const bannerController = {

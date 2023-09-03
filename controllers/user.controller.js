@@ -13,6 +13,13 @@ import passwordResetEmail from '../common/templates/password.reset.js';
 import image from '../assets/images/index.js';
 import { validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
+import {
+    InvalidDataError,
+    UnauthorizedError,
+    UnprocessableContentError,
+    InternalServerError,
+    ItemNotFoundError,
+} from '../utils/errors.js';
 
 dotenv.config();
 
@@ -26,7 +33,7 @@ const login = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
 
     const { email, password } = req.body;
@@ -34,8 +41,7 @@ const login = async (req, res) => {
 
     if (user && (await user.matchPassword(password))) {
         if (user.isVerified === false) {
-            res.status(401);
-            throw new Error(
+            throw new UnauthorizedError(
                 'Tài khoản của bạn chưa được xác minh. Vui lòng kiểm tra email của bạn để xác minh tài khoản trước khi đăng nhập.',
             );
         }
@@ -58,10 +64,9 @@ const login = async (req, res) => {
             ...generateToken,
         }).save();
         if (!newToken) {
-            res.status(500);
-            throw new Error('Authentication token generation failed');
+            throw new InternalServerError('Authentication token generation failed');
         }
-        res.status(200).json({
+        res.json({
             message: 'Success',
             data: {
                 user: userData,
@@ -70,14 +75,14 @@ const login = async (req, res) => {
             },
         });
     } else {
-        res.status(401);
-        throw new Error('Email hoặc mật khẩu sai');
+        throw new UnauthorizedError('Email hoặc mật khẩu sai');
     }
 };
+
 const refreshToken = async (req, res) => {
     if (!req.body.refreshToken || req.body.refreshToken?.toString().trim() == '') {
         res.status(401);
-        throw new Error('Not authorized, no token');
+        throw new UnauthorizedError('Not authorized, no token');
     }
     const refreshToken = req.body.refreshToken.toString();
 
@@ -91,8 +96,7 @@ const refreshToken = async (req, res) => {
         });
 
         if (!verifyToken || !verifyToken.user) {
-            res.status(401);
-            throw new Error('Not authorized, token failed');
+            throw new UnauthorizedError('Not authorized, token failed');
         }
         const generateToken = generateAuthToken(verifyToken.user._id);
         verifyToken.accessToken = generateToken.accessToken;
@@ -112,7 +116,7 @@ const refreshToken = async (req, res) => {
             createdAt: verifyToken.user.createdAt,
             updatedAt: verifyToken.user.updatedAt,
         };
-        res.status(200).json({
+        res.json({
             data: {
                 user: userData,
                 accessToken: generateToken.accessToken,
@@ -120,8 +124,7 @@ const refreshToken = async (req, res) => {
             },
         });
     } catch (error) {
-        res.status(401);
-        throw new Error('Not authorized, token failed');
+        throw new UnauthorizedError('Not authorized, token failed');
     }
 };
 const register = async (req, res) => {
@@ -129,15 +132,14 @@ const register = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
 
     const { name, phone, password } = req.body;
     const email = req.body.email.toString().toLowerCase();
     const userExists = await User.exists({ email });
     if (userExists) {
-        res.status(400);
-        throw new Error('Tài khoản đã tồn tại');
+        throw new InvalidDataError('Tài khoản đã tồn tại');
     }
 
     const user = await User.create({
@@ -169,7 +171,7 @@ const register = async (req, res) => {
 
     //send verify email
     await sendMail(messageOptions);
-    res.status(200).json({
+    res.json({
         message:
             'Đăng ký tài khoản thành công. Vui lòng truy cập email của bạn để xác minh tài khoản của bạn. Yêu cầu đăng ký sẽ hết hạn trong vòng 24 giờ.',
     });
@@ -178,22 +180,16 @@ const register = async (req, res) => {
 const verifyEmail = async (req, res) => {
     const emailVerificationToken = req.query.emailVerificationToken?.toString().trim() || '';
     if (!emailVerificationToken || emailVerificationToken == '') {
-        res.status(400);
-        throw new Error('Mã thông báo xác minh email không tồn tại');
+        throw new InvalidDataError('Mã thông báo xác minh email không tồn tại');
     }
     const hashedToken = crypto.createHash('sha256').update(emailVerificationToken).digest('hex');
     const user = await User.findOne({ emailVerificationToken: hashedToken, isVerified: false });
     if (!user) {
-        res.status(400);
-        throw new Error('Mã thông báo xác minh email không tồn tại');
+        throw new UnprocessableContentError('Mã thông báo xác minh email không tồn tại');
     }
     user.isVerified = true;
     user.emailVerificationToken = null;
-    const verifiedUser = await user.save();
-    if (!verifiedUser) {
-        res.status(502);
-        throw new Error('Xác minh tài khoản không thành công');
-    }
+    await user.save();
     const userData = {
         _id: verifiedUser._id,
         name: verifiedUser.name,
@@ -207,7 +203,7 @@ const verifyEmail = async (req, res) => {
         createdAt: verifiedUser.createdAt,
         updatedAt: verifiedUser.updatedAt,
     };
-    const cart = await Cart.create({
+    await Cart.create({
         user: verifiedUser._id,
         cartItems: [],
     });
@@ -217,10 +213,9 @@ const verifyEmail = async (req, res) => {
         ...generateToken,
     }).save();
     if (!newToken) {
-        res.status(502);
-        throw new Error('Authentication token generation failed');
+        throw new InternalServerError('Authentication token generation failed');
     }
-    res.status(200).json({
+    res.json({
         message: 'Xác minh Tài khoản thành công',
         data: {
             user: userData,
@@ -233,16 +228,14 @@ const verifyEmail = async (req, res) => {
 const cancelVerifyEmail = async (req, res, next) => {
     const emailVerificationToken = req.query.emailVerificationToken.toString().trim();
     if (!emailVerificationToken || emailVerificationToken === '') {
-        res.status(400);
-        throw new Error('Mã thông báo xác minh email không hợp lệ');
+        throw new InvalidDataError('Mã thông báo xác minh email không hợp lệ');
     }
     const hashedToken = crypto.createHash('sha256').update(emailVerificationToken).digest('hex');
     const user = await User.findOneAndDelete({ emailVerificationToken: hashedToken, isVerified: false }).lean();
     if (!user) {
-        res.status(400);
-        throw new Error('Mã thông báo xác minh email không tồn tại');
+        throw new UnprocessableContentError('Mã thông báo xác minh email không tồn tại');
     }
-    res.status(200).json({ message: 'Hủy xác minh email thành công' });
+    res.json({ message: 'Hủy xác minh email thành công' });
 };
 
 const forgotPassword = async (req, res, next) => {
@@ -256,8 +249,7 @@ const forgotPassword = async (req, res, next) => {
     const user = await User.findOne({ email, isVerified: true });
 
     if (!user) {
-        res.status(400);
-        throw new Error('Tài khoản không tồn tại');
+        throw new UnprocessableContentError('Tài khoản không tồn tại');
     }
 
     // Reset password
@@ -278,7 +270,7 @@ const forgotPassword = async (req, res, next) => {
 
     // Send reset password email
     await sendMail(messageOptions);
-    res.status(200).json({
+    res.json({
         message: 'Yêu cầu đặt lại mật khẩu thành công. Hãy kiểm tra hộp thư email của bạn',
     });
 };
@@ -288,7 +280,7 @@ const resetPassword = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const { newPassword } = req.body;
     const { resetPasswordToken } = req.query;
@@ -298,12 +290,10 @@ const resetPassword = async (req, res) => {
         isVerified: true,
     });
     if (!user) {
-        res.status(400);
-        throw new Error('Mã thông báo đặt lại mật khẩu không tồn tại');
+        throw new UnprocessableContentError('Mã thông báo đặt lại mật khẩu không tồn tại');
     }
     if (user.resetPasswordTokenExpiryTime < Date.now()) {
-        res.status(400);
-        throw new Error('Yêu cầu đặt lại mật khẩu đã hết hạn');
+        throw new InvalidDataError('Yêu cầu đặt lại mật khẩu đã hết hạn');
     }
 
     user.password = newPassword;
@@ -311,14 +301,13 @@ const resetPassword = async (req, res) => {
     user.resetPasswordTokenExpiryTime = null;
     await user.save();
     await Token.deleteMany({ user: user._id }).lean();
-    res.status(200).json({ message: 'Mật khẩu của bạn đã được đặt lại' });
+    res.json({ message: 'Mật khẩu của bạn đã được đặt lại' });
 };
 
 const cancelResetPassword = async (req, res) => {
     const resetPasswordToken = req.query.resetPasswordToken?.toString().trim();
     if (!resetPasswordToken || resetPasswordToken === '') {
-        res.status(400);
-        throw new Error('Mã thông báo đặt lại mật khẩu không hợp lệ');
+        throw new InvalidDataError('Mã thông báo đặt lại mật khẩu không hợp lệ');
     }
     const hashedToken = crypto.createHash('sha256').update(resetPasswordToken).digest('hex');
     const user = await User.findOneAndUpdate(
@@ -335,10 +324,9 @@ const cancelResetPassword = async (req, res) => {
         },
     ).lean();
     if (!user) {
-        res.status(400);
-        throw new Error('Mã thông báo đặt lại mật khẩu không tồn tại');
+        throw new UnprocessableContentError('Mã thông báo đặt lại mật khẩu không tồn tại');
     }
-    res.status(200).json({ message: 'Hủy yêu cầu đặt lại mật khẩu thành công' });
+    res.json({ message: 'Hủy yêu cầu đặt lại mật khẩu thành công' });
 };
 
 const getProfile = async (req, res) => {
@@ -352,10 +340,9 @@ const getProfile = async (req, res) => {
         })
         .lean();
     if (!user) {
-        res.status(404);
-        throw new Error('Tài khoản không tồn tại');
+        throw new ItemNotFoundError('Tài khoản không tồn tại');
     }
-    res.status(200).json({
+    res.json({
         data: {
             user: {
                 _id: user._id,
@@ -379,39 +366,37 @@ const updateProfile = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
 
     const user = await User.findById(req.user._id);
-    if (user) {
-        user.name = req.body.name || user.name;
-        user.phone = req.body.phone || user.phone;
-        user.gender = req.body.gender || user.gender;
-        // user.avatar = req.body.avatar || user.avatar;
-        user.birthday = req.body.birthday || user.birthday;
-        // user.address = req.body.address || user.address;
-        const updatedUser = await user.save();
-        res.status(200).json({
-            message: 'Cập nhật thông tin tài khoản thành công',
-            data: {
-                user: {
-                    _id: updatedUser._id,
-                    name: updatedUser.name,
-                    email: updatedUser.email,
-                    role: updatedUser.role,
-                    phone: updatedUser.phone,
-                    avatar: updatedUser.avatar,
-                    gender: updatedUser.gender,
-                    birthday: updatedUser.birthday,
-                    createdAt: updatedUser.createdAt,
-                    updatedAt: updatedUser.updatedAt,
-                },
-            },
-        });
-    } else {
-        res.status(404);
-        throw new Error('Tài khoản không tồn tại');
+    if (!user) {
+        throw new UnprocessableContentError('Tài khoản không tồn tại');
     }
+    user.name = req.body.name || user.name;
+    user.phone = req.body.phone || user.phone;
+    user.gender = req.body.gender || user.gender;
+    // user.avatar = req.body.avatar || user.avatar;
+    user.birthday = req.body.birthday || user.birthday;
+    // user.address = req.body.address || user.address;
+    const updatedUser = await user.save();
+    res.json({
+        message: 'Cập nhật thông tin tài khoản thành công',
+        data: {
+            user: {
+                _id: updatedUser._id,
+                name: updatedUser.name,
+                email: updatedUser.email,
+                role: updatedUser.role,
+                phone: updatedUser.phone,
+                avatar: updatedUser.avatar,
+                gender: updatedUser.gender,
+                birthday: updatedUser.birthday,
+                createdAt: updatedUser.createdAt,
+                updatedAt: updatedUser.updatedAt,
+            },
+        },
+    });
 };
 
 const changePassword = async (req, res) => {
@@ -419,26 +404,24 @@ const changePassword = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const { currentPassword, newPassword } = req.body;
 
     const user = await User.findById(req.user._id);
     if (!user) {
-        res.status(404);
-        throw new Error('Tài khoản không tồn tại');
+        throw new UnprocessableContentError('Tài khoản không tồn tại');
     }
-    if (await user.matchPassword(currentPassword)) {
-        user.password = newPassword;
-        await user.save();
-        await Token.deleteMany({ user: user._id });
-        res.status(200).json({
-            message: 'Thay đổi mật khẩu thành công',
-        });
-    } else {
-        res.status(400);
-        throw new Error('Mật khẩu hiện tại không đúng');
+    const isPasswordMatched = await user.matchPassword(currentPassword);
+    if (!isPasswordMatched) {
+        throw new InvalidDataError('Mật khẩu hiện tại không đúng');
     }
+    user.password = newPassword;
+    await user.save();
+    await Token.deleteMany({ user: user._id });
+    res.json({
+        message: 'Thay đổi mật khẩu thành công',
+    });
 };
 
 const getUserAddress = async (req, res) => {
@@ -455,7 +438,7 @@ const createUserAddress = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
 
     const { name, phone, province, district, ward, specificAddress } = req.body;
@@ -470,14 +453,15 @@ const createUserAddress = async (req, res) => {
     }
     req.user.address.push({ name, phone, province, district, ward, specificAddress, isDefault });
     await req.user.save();
-    res.status(201).json({ message: 'Thêm địa chỉ thành công', data: { addressList: req.user.address } });
+    res.json({ message: 'Thêm địa chỉ thành công', data: { addressList: req.user.address } });
 };
+
 const updateUserAddress = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const addressId = req.params.id || null;
     const { name, phone, province, district, ward, specificAddress, isDefault } = req.body;
@@ -488,7 +472,7 @@ const updateUserAddress = async (req, res) => {
         }
         if (item._id == addressId) {
             if (isDefault == false && item.isDefault == true) {
-                throw new Error(
+                throw new InvalidDataError(
                     'Không thể bỏ xác nhận đặt làm địa chỉ mặc định khi địa chỉ đang được chọn làm mặc định',
                 );
             }
@@ -503,25 +487,24 @@ const updateUserAddress = async (req, res) => {
         }
     });
     if (count <= 0) {
-        res.status(404);
-        throw new Error('Địa chỉ không tồn tại');
+        throw new UnprocessableContentError('Địa chỉ không tồn tại');
     }
     await req.user.save();
-    res.status(200).json({ message: 'Cập nhật địa chỉ thành công', data: { addressList: req.user.address } });
+    res.json({ message: 'Cập nhật địa chỉ thành công', data: { addressList: req.user.address } });
 };
+
 const removeUserAddress = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const addressId = req.params.id || null;
     const newAddressList = req.user.address.filter((item) => {
         if (item._id == addressId) {
             if (item.isDefault) {
-                res.status(400);
-                throw new Error('Không thể xóa địa chỉ đang được đặt làm địa chỉ mặc định');
+                throw new InvalidDataError('Không thể xóa địa chỉ đang được đặt làm địa chỉ mặc định');
             } else {
                 return false;
             }
@@ -530,13 +513,13 @@ const removeUserAddress = async (req, res) => {
         }
     });
     if (newAddressList.length == req.user.address.length) {
-        res.status(404);
-        throw new Error('Địa chỉ không tồn tại');
+        throw new UnprocessableContentError('Địa chỉ không tồn tại');
     }
     req.user.address = newAddressList;
     await req.user.save();
-    res.status(200).json({ message: 'Xóa địa chỉ thành công', data: { addressList: req.user.address } });
+    res.json({ message: 'Xóa địa chỉ thành công', data: { addressList: req.user.address } });
 };
+
 const getUserDiscountCode = async (req, res) => {
     await req.user.populate('discountCode');
     res.json({
@@ -546,38 +529,35 @@ const getUserDiscountCode = async (req, res) => {
         },
     });
 };
+
 const addUserDiscountCode = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const code = req.body.discountCode;
     const existedDiscountCode = await DiscountCode.findOne({ code: code, disabled: false }).lean();
     if (!existedDiscountCode) {
-        res.status(404);
-        throw new Error('Mã giảm giá không tồn tại');
+        throw new UnprocessableContentError('Mã giảm giá không tồn tại');
     }
     if (existedDiscountCode.endDate < Date.now()) {
-        res.status(404);
-        throw new Error('Mã giảm giá Đã hết hạn');
+        throw new InvalidDataError('Mã giảm giá Đã hết hạn');
     }
     if (existedDiscountCode.isUsageLimit) {
         if (existedDiscountCode.used >= existedDiscountCode.usageLimit) {
-            res.status(400);
-            throw new Error('Mã giảm giá đã được sử dụng hết');
+            throw new InvalidDataError('Mã giảm giá đã được sử dụng hết');
         }
     }
     if (req.user.discountCode.indexOf(existedDiscountCode._id) != -1) {
-        res.status(400);
-        throw new Error('Mã giảm giá đã tồn tại trong danh sách mã giảm giá của bạn');
+        throw new InvalidDataError('Mã giảm giá đã tồn tại trong danh sách mã giảm giá của bạn');
     }
     req.user.discountCode.push(existedDiscountCode._id);
     await req.user.save();
     await req.user.populate('discountCode');
     // const user = await User.findById(req.user._id).populate('discountCode');
-    res.status(201).json({
+    res.json({
         message: 'Success',
         data: {
             discountCodeList: req.user.discountCode || [],

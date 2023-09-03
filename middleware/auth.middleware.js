@@ -2,6 +2,7 @@ import jwt, { decode } from 'jsonwebtoken';
 import asyncHandler from 'express-async-handler';
 import User from '../models/user.model.js';
 import Token from '../models/token.model.js';
+import { UnauthorizedError, UnauthenticatedError } from '../utils/errors.js';
 
 const protect = asyncHandler(async (req, res, next) => {
     const authHeader = req.headers.authorization;
@@ -17,19 +18,16 @@ const protect = asyncHandler(async (req, res, next) => {
             });
 
             if (!verifyToken || !verifyToken.user) {
-                res.status(401);
-                throw new Error('Not authorized, token failed');
+                throw new UnauthorizedError('Not authorized, token failed');
             }
             req.user = verifyToken.user;
             return next();
         } catch (error) {
             console.log(error);
-            res.status(401);
-            throw new Error('Not authorized, token failed');
+            throw new UnauthorizedError('Not authorized, token failed');
         }
     } else {
-        res.status(401);
-        throw new Error('Not authorized, no token');
+        throw new UnauthorizedError('Not authorized, no token');
     }
 });
 
@@ -84,8 +82,7 @@ const auth =
         if (index != -1) {
             next();
         } else {
-            res.status(403);
-            throw new Error('Forbidden');
+            throw new UnauthenticatedError('Forbidden');
         }
     };
 export { protect, auth, getUserData };

@@ -5,6 +5,13 @@ import Order from '../models/order.model.js';
 import schedule, { scheduleJob } from 'node-schedule';
 import Delivery from '../models/delivery.model.js';
 import { deliveryQueryParams, validateConstants } from '../utils/searchConstants.js';
+import {
+    InternalServerError,
+    InvalidDataError,
+    ItemNotFoundError,
+    UnavailableServiceError,
+    UnprocessableContentError,
+} from '../utils/errors.js';
 
 const getDeliveries = async (req, res) => {
     const limit = Number(req.query.limit) || 20; //EDIT HERE
@@ -21,7 +28,7 @@ const getDeliveries = async (req, res) => {
         .skip(limit * page)
         .sort({ ...sortBy })
         .lean();
-    res.status(200).json({ data: { deliveries, page, pages: Math.ceil(count / limit), total: count } });
+    res.json({ data: { deliveries, page, pages: Math.ceil(count / limit), total: count } });
 };
 
 const getDistrict = async (req, res) => {
@@ -29,7 +36,7 @@ const getDistrict = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const province_id = Number(req.params.id) || null;
     const config = {
@@ -39,11 +46,11 @@ const getDistrict = async (req, res) => {
     };
     await GHN_Request.get('/master-data/district', config)
         .then((response) => {
-            res.status(200).json({ message: 'Success', data: { districts: response.data.data } });
+            res.json({ message: 'Success', data: { districts: response.data.data } });
         })
         .catch((error) => {
             res.status(error.response.data.code || 500);
-            throw new Error(error.response.data.message || error.message || '');
+            throw new InternalServerError(error.response.data.message || error.message || '');
         });
 };
 const getWard = async (req, res) => {
@@ -51,7 +58,7 @@ const getWard = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const district_id = Number(req.params.id) || null;
 
@@ -62,11 +69,11 @@ const getWard = async (req, res) => {
     };
     await GHN_Request.get('/master-data/ward', config)
         .then((response) => {
-            res.status(200).json({ message: 'Success', data: { wards: response.data.data } });
+            res.json({ message: 'Success', data: { wards: response.data.data } });
         })
         .catch((error) => {
             res.status(error.response.data.code || 500);
-            throw new Error(error.response.data.message || error.message || '');
+            throw new InternalServerError(error.response.data.message || error.message || '');
         });
 };
 const getProvince = async (req, res) => {
@@ -74,16 +81,16 @@ const getProvince = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
 
     await GHN_Request.get('/master-data/province')
         .then((response) => {
-            res.status(200).json({ message: 'Success', data: { provinces: response.data.data } });
+            res.json({ message: 'Success', data: { provinces: response.data.data } });
         })
         .catch((error) => {
             res.status(error.response.data.code || 500);
-            throw new Error(error.response.data.message || error.message || '');
+            throw new InternalServerError(error.response.data.message || error.message || '');
         });
 };
 const calculateFee = async (req, res) => {
@@ -91,7 +98,7 @@ const calculateFee = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const {
         to_district_id,
@@ -117,7 +124,7 @@ const calculateFee = async (req, res) => {
         })
         .catch((error) => {
             res.status(error.response.data.code || 500);
-            throw new Error(error.response.data.message || error.message || '');
+            throw new InternalServerError(error.response.data.message || error.message || '');
         });
 
     const getService = services.map(async (serviceItem) => {
@@ -156,7 +163,7 @@ const calculateFee = async (req, res) => {
             })
             .catch((error) => {
                 res.status(error.response.data.code || 500);
-                throw new Error(error.response.data.message || error.message || '');
+                throw new InternalServerError(error.response.data.message || error.message || '');
             });
         const [feeResult, leadTimeResult] = await Promise.all([calculateFeeRequest, leadTimeRequest]);
         if (feeResult != null && leadTimeResult != null) {
@@ -167,10 +174,9 @@ const calculateFee = async (req, res) => {
     });
     await Promise.all(getService);
     if (deliveryServices.length == 0) {
-        res.status(503);
-        throw new Error('There are no available services');
+        throw new UnavailableServiceError('There are no available services');
     }
-    res.status(200).json({ message: 'Success', data: { deliveryServices } });
+    res.json({ message: 'Success', data: { deliveryServices } });
 };
 
 const estimatedDeliveryTime = async (req, res) => {
@@ -178,7 +184,7 @@ const estimatedDeliveryTime = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const { from_district_id, from_ward_code, service_id, to_district_id, to_ward_code } = req.body;
 
@@ -194,11 +200,11 @@ const estimatedDeliveryTime = async (req, res) => {
     };
     await GHN_Request.get('v2/shipping-order/leadtime', config)
         .then((response) => {
-            res.status(200).json({ message: 'Success', data: { leadTime: response.data.data } });
+            res.json({ message: 'Success', data: { leadTime: response.data.data } });
         })
         .catch((error) => {
             res.status(error.response.data.code || 500);
-            throw new Error(error.response.data.message || error.message || '');
+            throw new InternalServerError(error.response.data.message || error.message || '');
         });
 };
 const services = async (req, res) => {
@@ -206,7 +212,7 @@ const services = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        return res.json({ message: message });
     }
     const { to_district } = req.body;
     const config = {
@@ -218,11 +224,11 @@ const services = async (req, res) => {
     };
     await GHN_Request.get('/v2/shipping-order/available-services', config)
         .then((response) => {
-            res.status(200).json({ message: 'Success', data: { services: response.data.data } });
+            res.json({ message: 'Success', data: { services: response.data.data } });
         })
         .catch((error) => {
             res.status(error.response.data.code || 500);
-            throw new Error(error.response.data.message || error.message || '');
+            throw new InternalServerError(error.response.data.message || error.message || '');
         });
 };
 const preview = async (req, res) => {
@@ -230,14 +236,13 @@ const preview = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const orderId = req.params.id;
     const required_note = req.body.requiredNote || null;
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate('delivery');
     if (!order) {
-        res.status(400);
-        throw new Error('Đơn hàng không tồn tại');
+        throw new UnprocessableContentError('Đơn hàng không tồn tại');
     }
     const config = {
         data: JSON.stringify({
@@ -270,36 +275,32 @@ const preview = async (req, res) => {
         })
         .catch((error) => {
             res.status(error.response.data.code || 502);
-            throw new Error(error.response.data.message || error.message || null);
+            throw new InternalServerError(error.response.data.message || error.message || null);
         });
 
-    res.status(200).json({ data: { deliveryInfo } });
+    res.json({ data: { deliveryInfo } });
 };
 const printOrder = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const orderId = req.params.id || '';
     const pageSize = req.params.pageSize || 'A5';
     if (!orderId || orderId.trim() == '') {
-        res.status(400);
-        throw new Error('Đơn hàng không tồn tại');
+        throw new UnprocessableContentError('Đơn hàng không tồn tại');
     }
     if (pageSize != '52x70' && pageSize != 'A5' && pageSize != '80x80') {
-        res.status(400);
-        throw new Error('Kích thước giấy in không hợp lệ');
+        throw new InvalidDataError('Kích thước giấy in không hợp lệ');
     }
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate('delivery').lean();
     if (!order) {
-        res.status(400);
-        throw new Error('Đơn hàng không tồn tại');
+        throw new UnprocessableContentError('Đơn hàng không tồn tại');
     }
     if (!order.delivery.deliveryCode || order.delivery?.deliveryCode.trim() == '') {
-        res.status(400);
-        throw new Error('Đơn hàng chưa tạo đơn giao của đơn vị vận chuyển');
+        throw new InvalidDataError('Đơn hàng chưa tạo đơn giao của đơn vị vận chuyển');
     }
     const config = {
         data: JSON.stringify({
@@ -308,7 +309,7 @@ const printOrder = async (req, res) => {
     };
     await GHN_Request.get('v2/a5/gen-token', config)
         .then((response) => {
-            res.status(200).json({
+            res.json({
                 message: 'Success',
                 data: {
                     url: `${process.env.GHN_REQUEST_URL}/a5/public-api/print${pageSize}?token=${response.data.data.token}`,
@@ -317,7 +318,7 @@ const printOrder = async (req, res) => {
         })
         .catch((error) => {
             res.status(error.response.data.code || 500);
-            throw new Error(
+            throw new InternalServerError(
                 error.response.data.message.code_message_value || error.response.data.message || error.message || '',
             );
         });
@@ -327,42 +328,31 @@ const updateCOD = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
+        throw new InvalidDataError(message);
     }
     const orderId = req.params.id || '';
     const cod_amount = Number(req.body.cod_amount);
-    if (!orderId || orderId.trim() == '') {
-        res.status(400);
-        throw new Error('Đơn hàng không tồn tại');
-    }
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate(['delivery', 'paymentInformation']);
     if (!order) {
-        res.status(400);
-        throw new Error('Đơn hàng không tồn tại');
+        throw new UnprocessableContentError('Đơn hàng không tồn tại');
     }
     switch (order.status) {
         case 'placed':
-            res.status(400);
-            throw new Error('Đơn hàng đã được xác nhận');
+            throw new InvalidDataError('Đơn hàng đã được xác nhận');
         case 'confirm':
-            res.status(400);
-            throw new Error('Đơn hàng chưa tạo đơn giao của đơn vị vận chuyển');
+            throw new InvalidDataError('Đơn hàng chưa tạo đơn giao của đơn vị vận chuyển');
         case 'delivered':
-            res.status(400);
-            throw new Error('Đơn hàng đã được giao thành công');
+            throw new InvalidDataError('Đơn hàng đã được giao thành công');
         case 'completed':
-            res.status(400);
-            throw new Error('Đơn hàng đã được hoàn thành');
+            throw new InvalidDataError('Đơn hàng đã được hoàn thành');
         case 'cancelled':
-            res.status(400);
-            throw new Error('Đơn hàng đã bị hủy');
+            throw new InvalidDataError('Đơn hàng đã bị hủy');
         default:
             break;
     }
 
     if (!order.delivery.deliveryCode || order.delivery?.deliveryCode.trim() == '') {
-        res.status(400);
-        throw new Error('Đơn hàng chưa tạo đơn giao của đơn vị vận chuyển');
+        throw new InvalidDataError('Đơn hàng chưa tạo đơn giao của đơn vị vận chuyển');
     } else {
         const config = {
             data: JSON.stringify({
@@ -374,14 +364,14 @@ const updateCOD = async (req, res) => {
             .then(async (response) => {
                 order.delivery.cod_amount = cod_amount;
                 await order.delivery.save();
-                res.status(200).json({
+                res.json({
                     message: 'Success',
                     data: null,
                 });
             })
             .catch((error) => {
                 res.status(error.response.data.code || 500);
-                throw new Error(
+                throw new InternalServerError(
                     error.response.data.message.code_message_value ||
                         error.response.data.message ||
                         error.message ||
@@ -394,37 +384,29 @@ const updateStatus = async (req, res) => {
     const orderId = req.params.id || '';
     const deliveryCode = Number(req.body.OrderCode);
     if (!deliveryCode || deliveryCode.trim() == '') {
-        res.status(400);
-        throw new Error('Đơn giao hàng không tồn tại');
+        throw new UnprocessableContentError('Đơn giao hàng không tồn tại');
     }
     const delivery = await Delivery.findOne({ deliveryCode: deliveryCode }).populate(['order']);
     if (!delivery) {
-        res.status(400);
-        throw new Error('Đơn giao hàng không tồn tại');
+        throw new UnprocessableContentError('Đơn giao hàng không tồn tại');
     }
     switch (delivery.status) {
         case 'placed':
-            res.status(400);
-            throw new Error('Đơn hàng đã được xác nhận');
+            throw new InvalidDataError('Đơn hàng đã được xác nhận');
         case 'confirm':
-            res.status(400);
-            throw new Error('Đơn hàng chưa tạo đơn giao của đơn vị vận chuyển');
+            throw new InvalidDataError('Đơn hàng chưa tạo đơn giao của đơn vị vận chuyển');
         case 'delivered':
-            res.status(400);
-            throw new Error('Đơn hàng đã được giao thành công');
+            throw new InvalidDataError('Đơn hàng đã được giao thành công');
         case 'completed':
-            res.status(400);
-            throw new Error('Đơn hàng đã được hoàn thành');
+            throw new InvalidDataError('Đơn hàng đã được hoàn thành');
         case 'cancelled':
-            res.status(400);
-            throw new Error('Đơn hàng đã bị hủy');
+            throw new InvalidDataError('Đơn hàng đã bị hủy');
         default:
             break;
     }
 
     if (!delivery.delivery.deliveryCode || delivery.delivery?.deliveryCode.trim() == '') {
-        res.status(400);
-        throw new Error('Đơn hàng chưa tạo đơn giao của đơn vị vận chuyển');
+        throw new InvalidDataError('Đơn hàng chưa tạo đơn giao của đơn vị vận chuyển');
     } else {
         const config = {
             data: JSON.stringify({
@@ -436,14 +418,14 @@ const updateStatus = async (req, res) => {
             .then(async (response) => {
                 delivery.delivery.cod_amount = cod_amount;
                 await delivery.delivery.save();
-                res.status(200).json({
+                res.json({
                     message: 'Success',
                     data: null,
                 });
             })
             .catch((error) => {
                 res.status(error.response.data.code || 500);
-                throw new Error(
+                throw new InternalServerError(
                     error.response.data.message.code_message_value ||
                         error.response.data.message ||
                         error.message ||
