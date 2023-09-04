@@ -27,55 +27,47 @@ const getUsersByAdmin = () => {
     return User.find().lean();
 };
 
-const login = async (req, res) => {
+const login = async (email, password) => {
     // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-
-    const { email, password } = req.body;
     const user = await User.findOne({ email });
-
-    if (user && (await user.matchPassword(password))) {
-        if (user.isVerified === false) {
-            throw new UnauthorizedError(
-                'Tài khoản của bạn chưa được xác minh. Vui lòng kiểm tra email của bạn để xác minh tài khoản trước khi đăng nhập.',
-            );
-        }
-        const userData = {
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            phone: user.phone,
-            avatar: user.avatar,
-            gender: user.gender,
-            birthday: user.birthday,
-            address: user.address,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt,
-        };
-        const generateToken = generateAuthToken(user._id);
-        const newToken = await new Token({
-            user: user._id,
-            ...generateToken,
-        }).save();
-        if (!newToken) {
-            throw new InternalServerError('Authentication token generation failed');
-        }
-        res.json({
-            message: 'Success',
-            data: {
-                user: userData,
-                accessToken: generateToken.accessToken,
-                refreshToken: generateToken.refreshToken,
-            },
-        });
-    } else {
+    if (!user) {
+        throw new UnauthorizedError('Email không tồn tại');
+    }
+    const isPasswordMatched = await user.matchPassword(password);
+    if (!isPasswordMatched) {
         throw new UnauthorizedError('Email hoặc mật khẩu sai');
     }
+    if (user.isVerified === false) {
+        throw new UnauthorizedError(
+            'Tài khoản của bạn chưa được xác minh. Vui lòng kiểm tra email của bạn để xác minh tài khoản trước khi đăng nhập.',
+        );
+    }
+    const userData = {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        avatar: user.avatar,
+        gender: user.gender,
+        birthday: user.birthday,
+        address: user.address,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+    };
+    const generateToken = generateAuthToken(user._id);
+    const newToken = await new Token({
+        user: user._id,
+        ...generateToken,
+    }).save();
+    if (!newToken) {
+        throw new InternalServerError('Authentication token generation failed');
+    }
+    return {
+        user: userData,
+        accessToken: generateToken.accessToken,
+        refreshToken: generateToken.refreshToken,
+    };
 };
 
 const refreshToken = async (req, res) => {

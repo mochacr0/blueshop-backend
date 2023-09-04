@@ -27,7 +27,17 @@ UserController.get(
         res.json(await UserService.getUsersByAdmin());
     }),
 );
-UserController.post('/login', validate.login, asyncHandler(UserService.login));
+
+UserController.post(
+    '/login',
+    validate.login,
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const { email, password } = req.body;
+        res.json(await UserService.login(email, password));
+    }),
+);
+
 UserController.post('/refresh-token', asyncHandler(UserService.refreshToken));
 UserController.post('/register', validate.register, asyncHandler(UserService.register));
 UserController.put(
