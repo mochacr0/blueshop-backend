@@ -268,7 +268,7 @@ const deleteDiscountCode = async (req, res) => {
     res.json({ message: 'Xóa mã giảm giá thành công' });
 };
 
-const bannerController = {
+const VoucherService = {
     getDiscountCode,
     getDiscountCodeById,
     getDiscountCodeByCode,
@@ -277,4 +277,4 @@ const bannerController = {
     updateDiscountCode,
     deleteDiscountCode,
 };
-export default bannerController;
+export default VoucherService;

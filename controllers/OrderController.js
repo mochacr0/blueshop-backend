@@ -1,0 +1,75 @@
+import express from 'express';
+import asyncHandler from 'express-async-handler';
+import { auth, protect } from '../middleware/auth.middleware.js';
+import OrderService from '../services/OrderService.js';
+import validate from '../middleware/validate.middleware.js';
+
+const OrderController = express.Router();
+
+OrderController.get(
+    '/ordered/:userId',
+    validate.getOrdersByUserId,
+    protect,
+    asyncHandler(OrderService.getOrdersByUserId),
+);
+OrderController.get('/:id/payment-status', protect, asyncHandler(OrderService.getOrderPaymentStatus));
+OrderController.post('/:id/refund', protect, asyncHandler(OrderService.refundTrans));
+OrderController.get('/:id', validate.validateOrderId, protect, asyncHandler(OrderService.getOrderById));
+OrderController.get('/', protect, auth('staff', 'admin'), asyncHandler(OrderService.getOrders));
+// orderRouter.post('/', validate.placeOrder, protect, auth('user'), asyncHandler(orderController.placeOrder));
+OrderController.post('/', validate.createOrder, protect, auth('user'), asyncHandler(OrderService.createOrder));
+// orderRouter.post(
+//     '/:id/payment-notification',
+//     validate.validateOrderId,
+//     asyncHandler(orderController.orderPaymentNotification),
+// );
+OrderController.get(
+    '/:id/payment-notification',
+    validate.validateOrderId,
+    asyncHandler(OrderService.orderPaymentNotification),
+);
+OrderController.patch(
+    '/:id/confirm',
+    validate.validateOrderId,
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(OrderService.confirmOrder),
+);
+OrderController.patch(
+    '/:id/delivery',
+    validate.validateOrderId,
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(OrderService.confirmDelivery),
+);
+OrderController.patch(
+    '/:id/delivered',
+    validate.validateOrderId,
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(OrderService.confirmDelivered),
+);
+OrderController.patch(
+    '/:id/received',
+    validate.validateOrderId,
+    protect,
+    auth('user'),
+    asyncHandler(OrderService.confirmReceived),
+);
+OrderController.patch(
+    '/:id/payment',
+    validate.validateOrderId,
+    protect,
+    auth('user'),
+    asyncHandler(OrderService.userPaymentOrder),
+);
+OrderController.patch(
+    '/:id/confirm-payment',
+    validate.validateOrderId,
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(OrderService.adminPaymentOrder),
+);
+OrderController.patch('/:id/cancel', validate.validateOrderId, protect, asyncHandler(OrderService.cancelOrder));
+
+export default OrderController;

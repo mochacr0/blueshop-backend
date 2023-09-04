@@ -22,7 +22,7 @@ import {
     PAYMENT_WITH_ATM,
     PAYMENT_WITH_CREDIT_CARD,
 } from '../utils/paymentConstants.js';
-import { scheduleCancelUncofirmedOrder, scheduleCancelUnpaidOrder } from '../cronJobs/cronJobs.js';
+import TaskService from '../services/TaskService.js';
 import {
     ItemNotFoundError,
     InvalidDataError,
@@ -626,9 +626,9 @@ const createOrder = async (req, res, next) => {
 
             //schedule job
             if (isMomoPaymentMethods(newOrder.paymentInformation.paymentMethod)) {
-                scheduleCancelUnpaidOrder(newOrder);
+                TaskService.scheduleCancelUnpaidOrder(newOrder);
             } else if (newOrder.paymentInformation.paymentMethod == PAYMENT_WITH_CASH) {
-                scheduleCancelUncofirmedOrder(newOrder);
+                TaskService.scheduleCancelUncofirmedOrder(newOrder);
             }
 
             await session.commitTransaction();
@@ -1229,7 +1229,7 @@ const isMomoPaymentMethods = (paymentMethod) => {
     );
 };
 
-const orderController = {
+const OrderService = {
     getOrdersByUserId,
     getOrderById,
     getOrders,
@@ -1248,4 +1248,4 @@ const orderController = {
     cancelDelivery,
 };
 
-export default orderController;
+export default OrderService;

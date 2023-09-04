@@ -1,0 +1,25 @@
+import ImportData from './DataImport.js';
+import ProductController from './ProductController.js';
+import UserController from './UserController.js';
+import OrderController from './OrderController.js';
+import BannerController from './BannerController.js';
+import CartController from './CartController.js';
+import CategoryController from './CategoryController.js';
+import VoucherController from './VoucherController.js';
+import DeliveryController from './DeliveryController.js';
+import TestController from './TestController.js';
+import CommonController from './CommonController.js';
+const routes = (app) => {
+    app.use('/api/v1/banners', BannerController);
+    app.use('/api/v1/carts', CartController);
+    app.use('/api/v1/categories', CategoryController);
+    app.use('/api/v1/deliveries', DeliveryController);
+    app.use('/api/v1/discount-codes', VoucherController);
+    app.use('/api/v1/imports', ImportData);
+    app.use('/api/v1/orders', OrderController);
+    app.use('/api/v1/products', ProductController);
+    app.use('/api/v1/users', UserController);
+    app.use('/api/v1/common', CommonController);
+    app.use('/api/v1/tests', TestController);
+};
+export default routes;

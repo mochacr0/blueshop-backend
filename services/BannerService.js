@@ -117,11 +117,11 @@ const deleteBanner = async (req, res) => {
     res.json({ message: 'Xóa banner thành công' });
 };
 
-const bannerController = {
+const BannerService = {
     getBanners,
     getBannerById,
     createBanner,
     updateBanner,
     deleteBanner,
 };
-export default bannerController;
+export default BannerService;

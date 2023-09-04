@@ -6,7 +6,7 @@ import DiscountCode from '../models/discountCode.model.js';
 import User from '../models/user.model.js';
 import Cart from '../models/cart.model.js';
 import Order from '../models/order.model.js';
-import orderController from '../services/OrderService.js';
+import OrderService from './OrderService.js';
 import mongoose from 'mongoose';
 import { PAYMENT_WITH_CASH, PAYMENT_WITH_MOMO } from '../utils/paymentConstants.js';
 
@@ -104,8 +104,8 @@ const scheduleCancelUnpaidOrder = (order) => {
                 console.log('not found');
                 return;
             }
-            await orderController.rollbackProductQuantites(unpaidOrder, session);
-            await orderController.refundOrderInCancel(unpaidOrder, session);
+            await OrderService.rollbackProductQuantites(unpaidOrder, session);
+            await OrderService.refundOrderInCancel(unpaidOrder, session);
             unpaidOrder.status = 'cancelled';
             unpaidOrder.statusHistory.push({ status: 'cancelled', description: 'Hết hạn thanh toán' });
             const cancelledOrder = await unpaidOrder.save();
@@ -140,8 +140,8 @@ const scheduleCancelUncofirmedOrder = (order) => {
             if (unpaidOrder == null || unpaidOrder.paymentInformation.paymentMethod != PAYMENT_WITH_CASH) {
                 return;
             }
-            await orderController.rollbackProductQuantites(unpaidOrder, session);
-            await orderController.refundOrderInCancel(unpaidOrder, session);
+            await OrderService.rollbackProductQuantites(unpaidOrder, session);
+            await OrderService.refundOrderInCancel(unpaidOrder, session);
             unpaidOrder.status = 'cancelled';
             unpaidOrder.statusHistory.push({ status: 'cancelled', description: 'Shop không phản hồi' });
             const cancelledOrder = await unpaidOrder.save();
@@ -159,4 +159,9 @@ const scheduleCancelUncofirmedOrder = (order) => {
     });
 };
 
-export { scheduleCancelUnpaidOrder, scheduleCancelUncofirmedOrder };
+const TaskService = {
+    scheduleCancelUnpaidOrder,
+    scheduleCancelUncofirmedOrder,
+};
+
+export default TaskService;

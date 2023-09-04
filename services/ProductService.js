@@ -873,7 +873,7 @@ const deleteProduct = async (req, res) => {
     });
 };
 
-const productController = {
+const ProductService = {
     getProductBySlug,
     getProductById,
     getProductSearchResults,
@@ -889,4 +889,4 @@ const productController = {
     restoreProduct,
     deleteProduct,
 };
-export default productController;
+export default ProductService;

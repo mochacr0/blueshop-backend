@@ -564,7 +564,7 @@ const addUserDiscountCode = async (req, res) => {
         },
     });
 };
-const userController = {
+const UserService = {
     login,
     refreshToken,
     register,
@@ -584,4 +584,4 @@ const userController = {
     cancelVerifyEmail,
     cancelResetPassword,
 };
-export default userController;
+export default UserService;

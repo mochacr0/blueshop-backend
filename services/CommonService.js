@@ -35,8 +35,8 @@ const summary = async (req, res) => {
     }
     res.json({ message: 'Success', data: { totalOrder, totalProduct, totalUser, totalRevenue: totalAmount } });
 };
-const commonController = {
+const CommonService = {
     summary,
 };
 
-export default commonController;
+export default CommonService;

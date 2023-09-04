@@ -119,5 +119,5 @@ const removeCartItems = async (req, res) => {
     res.json({ success: true, message: 'Sản phẩm đã được xóa khỏi giỏ hàng' });
 };
 
-const cartController = { getCart, addToCart, updateCartItem, removeCartItems };
-export default cartController;
+const CartService = { getCart, addToCart, updateCartItem, removeCartItems };
+export default CartService;

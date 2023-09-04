@@ -2,34 +2,34 @@ import express from 'express';
 import asyncHandler from 'express-async-handler';
 import { protect, auth } from '../middleware/auth.middleware.js';
 import { multerUpload } from '../utils/multer.js';
-import bannerController from '../services/BannerService.js';
+import BannerService from '../services/BannerService.js';
 import validate from '../middleware/validate.middleware.js';
 
-const bannerRouter = express.Router();
+const BannerController = express.Router();
 
-bannerRouter.get('/', asyncHandler(bannerController.getBanners));
+BannerController.get('/', asyncHandler(BannerService.getBanners));
 
-bannerRouter.get('/:id', protect, auth('staff', 'admin'), asyncHandler(bannerController.getBannerById));
+BannerController.get('/:id', protect, auth('staff', 'admin'), asyncHandler(BannerService.getBannerById));
 
-bannerRouter.post(
+BannerController.post(
     '/',
     multerUpload.single('imageFile'),
     validate.createBanner,
     protect,
     auth('staff', 'admin'),
-    asyncHandler(bannerController.createBanner),
+    asyncHandler(BannerService.createBanner),
 );
-bannerRouter.put(
+BannerController.put(
     '/:id',
     multerUpload.single('imageFile'),
     validate.updateBanner,
     protect,
     auth('staff', 'admin'),
-    asyncHandler(bannerController.updateBanner),
+    asyncHandler(BannerService.updateBanner),
 );
-bannerRouter.delete('/:id', protect, auth('staff', 'admin'), asyncHandler(bannerController.deleteBanner));
+BannerController.delete('/:id', protect, auth('staff', 'admin'), asyncHandler(BannerService.deleteBanner));
 // bannerRouter.patch('/:id/increaseIndex', protect, auth('staff', 'admin'), asyncHandler(bannerController.increaseIndex));
 
 // bannerRouter.patch('/:id/decreaseIndex', protect, auth('staff', 'admin'), asyncHandler(bannerController.decreaseIndex));
 
-export default bannerRouter;
+export default BannerController;

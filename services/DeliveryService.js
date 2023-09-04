@@ -434,7 +434,7 @@ const updateStatus = async (req, res) => {
             });
     }
 };
-const deliveryController = {
+const DeliveryService = {
     getDeliveries,
     getDistrict,
     getWard,
@@ -447,4 +447,4 @@ const deliveryController = {
     updateCOD,
     updateStatus,
 };
-export default deliveryController;
+export default DeliveryService;

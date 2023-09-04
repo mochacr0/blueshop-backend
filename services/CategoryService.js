@@ -289,7 +289,7 @@ const deleteCategory = async (req, res) => {
     res.json({ message: 'Xóa danh mục thành công' });
 };
 
-const categoryController = {
+const CategoryService = {
     createCategory,
     getCategories,
     getCategoryTree,
@@ -297,4 +297,4 @@ const categoryController = {
     updateCategory,
     deleteCategory,
 };
-export default categoryController;
+export default CategoryService;

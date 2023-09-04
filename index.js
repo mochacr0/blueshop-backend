@@ -9,10 +9,9 @@ import { errorHandler, notFound } from './middleware/error.middleware.js';
 import bodyParser from 'body-parser';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import routes from './routes/index.js';
+import routes from './controllers/index.js';
 import multer from 'multer';
 // import logger from './utils/logger.js';
-import { deleteExpiredTokens } from './cronJobs/cronJobs.js';
 
 dotenv.config();
 connectDatabase();
