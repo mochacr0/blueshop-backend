@@ -6,7 +6,7 @@ import DiscountCode from '../models/discountCode.model.js';
 import User from '../models/user.model.js';
 import Cart from '../models/cart.model.js';
 import Order from '../models/order.model.js';
-import orderController from '../controllers/order.controller.js';
+import orderController from '../services/OrderService.js';
 import mongoose from 'mongoose';
 import { PAYMENT_WITH_CASH, PAYMENT_WITH_MOMO } from '../utils/paymentConstants.js';
 

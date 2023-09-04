@@ -1,7 +1,7 @@
 import express from 'express';
 import asyncHandler from 'express-async-handler';
 import { protect, auth } from '../middleware/auth.middleware.js';
-import userController from '../controllers/user.controller.js';
+import userController from '../services/UserService.js';
 import validate from '../middleware/validate.middleware.js';
 import { passportGoogleConfig } from '../config/oauth2.google.config.js';
 import passport from 'passport';

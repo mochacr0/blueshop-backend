@@ -1,7 +1,7 @@
 import express from 'express';
 import asyncHandler from 'express-async-handler';
 import { protect, auth } from '../middleware/auth.middleware.js';
-import categoryController from '../controllers/category.controller.js';
+import categoryController from '../services/CategoryService.js';
 import validate from '../middleware/validate.middleware.js';
 import { multerUpload } from '../utils/multer.js';
 

@@ -1,7 +1,7 @@
 import express from 'express';
 import asyncHandler from 'express-async-handler';
 import { protect, auth, getUserData } from '../middleware/auth.middleware.js';
-import discountCodeController from '../controllers/discountCode.controller.js';
+import discountCodeController from '../services/VoucherService.js';
 import validate from '../middleware/validate.middleware.js';
 
 const discountCodeRouter = express.Router();

@@ -2,7 +2,7 @@ import express from 'express';
 import asyncHandler from 'express-async-handler';
 import { protect, auth } from '../middleware/auth.middleware.js';
 import { multerUpload } from '../utils/multer.js';
-import bannerController from '../controllers/banner.controller.js';
+import bannerController from '../services/BannerService.js';
 import validate from '../middleware/validate.middleware.js';
 
 const bannerRouter = express.Router();
