@@ -6,16 +6,32 @@ import validate from '../middleware/validate.middleware.js';
 import { passportGoogleConfig } from '../config/oauth2.google.config.js';
 import passport from 'passport';
 import generateAuthToken from '../utils/generateToken.js';
+import validateRequest from '../utils/validateRequest.js';
 
 const UserController = express.Router();
 passportGoogleConfig(passport);
 
-UserController.get('/profile', protect, asyncHandler(UserService.getProfile));
+UserController.get(
+    '/profile',
+    protect,
+    asyncHandler(async (req, res) => {
+        res.json(await UserService.getProfile(req.user._id));
+    }),
+);
+
 UserController.get('/', protect, auth('staff', 'admin'), asyncHandler(UserService.getUsersByAdmin));
 UserController.post('/login', validate.login, asyncHandler(UserService.login));
 UserController.post('/refresh-token', asyncHandler(UserService.refreshToken));
 UserController.post('/register', validate.register, asyncHandler(UserService.register));
-UserController.put('/profile', validate.updateProfile, protect, asyncHandler(UserService.updateProfile));
+UserController.put(
+    '/profile',
+    validate.updateProfile,
+    protect,
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        res.json(await UserService.updateProfile(req.user._id, req.body));
+    }),
+);
 UserController.post(
     '/address/add-user-address',
     validate.userAddress,

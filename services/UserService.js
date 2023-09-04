@@ -329,8 +329,8 @@ const cancelResetPassword = async (req, res) => {
     res.json({ message: 'Hủy yêu cầu đặt lại mật khẩu thành công' });
 };
 
-const getProfile = async (req, res) => {
-    const user = await User.findById(req.user._id)
+const getProfile = async (userId) => {
+    const user = await User.findById(userId)
         .select({
             password: 0,
             isVerified: 0,
@@ -342,61 +342,67 @@ const getProfile = async (req, res) => {
     if (!user) {
         throw new ItemNotFoundError('Tài khoản không tồn tại');
     }
-    res.json({
-        data: {
-            user: {
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                phone: user.phone,
-                avatar: user.avatar,
-                gender: user.gender,
-                birthday: user.birthday,
-                address: user.address,
-                createdAt: user.createdAt,
-                updatedAt: user.updatedAt,
-            },
-        },
-    });
+    return user;
+    // res.json({
+    //     data: {
+    //         user: {
+    //             _id: user._id,
+    //             name: user.name,
+    //             email: user.email,
+    //             role: user.role,
+    //             phone: user.phone,
+    //             avatar: user.avatar,
+    //             gender: user.gender,
+    //             birthday: user.birthday,
+    //             address: user.address,
+    //             createdAt: user.createdAt,
+    //             updatedAt: user.updatedAt,
+    //         },
+    //     },
+    // });
 };
 
-const updateProfile = async (req, res) => {
+const updateProfile = async (userId, request) => {
     // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(userId);
     if (!user) {
         throw new UnprocessableContentError('Tài khoản không tồn tại');
     }
-    user.name = req.body.name || user.name;
-    user.phone = req.body.phone || user.phone;
-    user.gender = req.body.gender || user.gender;
+    user.name = request.name || user.name;
+    user.phone = request.phone || user.phone;
+    user.gender = request.gender || user.gender;
     // user.avatar = req.body.avatar || user.avatar;
-    user.birthday = req.body.birthday || user.birthday;
+    user.birthday = request.birthday || user.birthday;
     // user.address = req.body.address || user.address;
     const updatedUser = await user.save();
-    res.json({
-        message: 'Cập nhật thông tin tài khoản thành công',
-        data: {
-            user: {
-                _id: updatedUser._id,
-                name: updatedUser.name,
-                email: updatedUser.email,
-                role: updatedUser.role,
-                phone: updatedUser.phone,
-                avatar: updatedUser.avatar,
-                gender: updatedUser.gender,
-                birthday: updatedUser.birthday,
-                createdAt: updatedUser.createdAt,
-                updatedAt: updatedUser.updatedAt,
-            },
-        },
-    });
+    return {
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        role: updatedUser.role,
+        phone: updatedUser.phone,
+        avatar: updatedUser.avatar,
+        gender: updatedUser.gender,
+        birthday: updatedUser.birthday,
+        createdAt: updatedUser.createdAt,
+        updatedAt: updatedUser.updatedAt,
+    };
+    // res.json({
+    //     message: 'Cập nhật thông tin tài khoản thành công',
+    //     data: {
+    //         user: {
+    //             _id: updatedUser._id,
+    //             name: updatedUser.name,
+    //             email: updatedUser.email,
+    //             role: updatedUser.role,
+    //             phone: updatedUser.phone,
+    //             avatar: updatedUser.avatar,
+    //             gender: updatedUser.gender,
+    //             birthday: updatedUser.birthday,
+    //             createdAt: updatedUser.createdAt,
+    //             updatedAt: updatedUser.updatedAt,
+    //         },
+    //     },
+    // });
 };
 
 const changePassword = async (req, res) => {
