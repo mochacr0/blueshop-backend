@@ -23,9 +23,8 @@ import {
 
 dotenv.config();
 
-const getUsersByAdmin = async (req, res) => {
-    const users = await User.find().lean();
-    res.status(200).json({ message: 'Success', data: { users } });
+const getUsersByAdmin = () => {
+    return User.find().lean();
 };
 
 const login = async (req, res) => {

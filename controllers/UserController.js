@@ -19,7 +19,14 @@ UserController.get(
     }),
 );
 
-UserController.get('/', protect, auth('staff', 'admin'), asyncHandler(UserService.getUsersByAdmin));
+UserController.get(
+    '/',
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(async (req, res) => {
+        res.json(await UserService.getUsersByAdmin());
+    }),
+);
 UserController.post('/login', validate.login, asyncHandler(UserService.login));
 UserController.post('/refresh-token', asyncHandler(UserService.refreshToken));
 UserController.post('/register', validate.register, asyncHandler(UserService.register));
