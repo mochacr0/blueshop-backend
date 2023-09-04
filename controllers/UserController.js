@@ -1,11 +1,10 @@
 import express from 'express';
 import asyncHandler from 'express-async-handler';
-import { protect, auth } from '../middleware/auth.middleware.js';
-import UserService from '../services/UserService.js';
-import validate from '../middleware/validate.middleware.js';
-import { passportGoogleConfig } from '../config/oauth2.google.config.js';
 import passport from 'passport';
-import generateAuthToken from '../utils/generateToken.js';
+import { passportGoogleConfig } from '../config/oauth2.google.config.js';
+import { auth, protect } from '../middleware/auth.middleware.js';
+import validate from '../middleware/validate.middleware.js';
+import UserService from '../services/UserService.js';
 import validateRequest from '../utils/validateRequest.js';
 
 const UserController = express.Router();
@@ -45,7 +44,22 @@ UserController.post(
     }),
 );
 
-UserController.post('/register', validate.register, asyncHandler(UserService.register));
+UserController.post(
+    '/register',
+    validate.register,
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const registerRequest = {
+            email: req.body.email,
+            name: req.body.name,
+            phone: req.body.phone,
+            password: req.body.password,
+        };
+        await UserService.register(registerRequest);
+        res.json('Đăng ký thành công');
+    }),
+);
+
 UserController.put(
     '/profile',
     validate.updateProfile,
@@ -55,12 +69,25 @@ UserController.put(
         res.json(await UserService.updateProfile(req.user._id, req.body));
     }),
 );
+
 UserController.post(
     '/address/add-user-address',
     validate.userAddress,
     protect,
-    asyncHandler(UserService.createUserAddress),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const createAddressRequest = {
+            name: req.body.name,
+            phone: req.body.phone,
+            province: req.body.province,
+            district: req.body.district,
+            ward: req.body.specificAddress,
+            isDefault: req.body.isDefault,
+        };
+        res.json(await UserService.createUserAddress(req.user, createAddressRequest));
+    }),
 );
+
 UserController.put(
     '/address/:id/update-user-address',
     validate.userAddress,

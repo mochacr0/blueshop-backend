@@ -7,25 +7,23 @@ import { UnauthorizedError, UnauthenticatedError } from '../utils/errors.js';
 const protect = asyncHandler(async (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer')) {
+        let decoded;
         try {
             const token = authHeader.split(' ')[1];
-            const decoded = jwt.verify(token, process.env.ACCESS_JWT_SECRET);
-            const userId = decoded._id || null;
-            // const user = await User.findOne({ _id: userId, isVerified: true }).select('-password');
-            const verifyToken = await Token.findOne({ user: userId, accessToken: token }).populate({
-                path: 'user',
-                select: '-password',
-            });
-
-            if (!verifyToken || !verifyToken.user) {
-                throw new UnauthorizedError('Not authorized, token failed');
-            }
-            req.user = verifyToken.user;
-            return next();
+            decoded = jwt.verify(token, process.env.ACCESS_JWT_SECRET);
         } catch (error) {
             console.log(error);
             throw new UnauthorizedError('Not authorized, token failed');
         }
+        const userId = decoded._id || null;
+        // const user = await User.findOne({ _id: userId, isVerified: true }).select('-password');
+        const user = await User.findOne({ _id: userId });
+
+        if (!user) {
+            throw new UnauthorizedError('Not authorized, token failed');
+        }
+        req.user = user;
+        return next();
     } else {
         throw new UnauthorizedError('Not authorized, no token');
     }

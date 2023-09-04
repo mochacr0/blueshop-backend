@@ -1,25 +1,23 @@
-import dotenv from 'dotenv';
-import schedule, { scheduleJob } from 'node-schedule';
 import crypto from 'crypto';
-import User from '../models/user.model.js';
+import dotenv from 'dotenv';
+import { validationResult } from 'express-validator';
+import jwt from 'jsonwebtoken';
+import schedule from 'node-schedule';
+import activationMail from '../common/templates/mail.activation.js';
+import passwordResetEmail from '../common/templates/password.reset.js';
 import Cart from '../models/cart.model.js';
 import DiscountCode from '../models/discountCode.model.js';
 import Token from '../models/token.model.js';
-import { sendMail } from '../utils/nodemailler.js';
-import generateAuthToken from '../utils/generateToken.js';
-import { htmlMailVerify, htmlResetEmail } from '../common/templates/LayoutMail.js';
-import activationMail from '../common/templates/mail.activation.js';
-import passwordResetEmail from '../common/templates/password.reset.js';
-import image from '../assets/images/index.js';
-import { validationResult } from 'express-validator';
-import jwt from 'jsonwebtoken';
+import User from '../models/user.model.js';
 import {
+    InternalServerError,
     InvalidDataError,
+    ItemNotFoundError,
     UnauthorizedError,
     UnprocessableContentError,
-    InternalServerError,
-    ItemNotFoundError,
 } from '../utils/errors.js';
+import generateAuthToken from '../utils/generateToken.js';
+import { sendMail } from '../utils/nodemailler.js';
 
 dotenv.config();
 
@@ -56,13 +54,6 @@ const login = async (email, password) => {
         updatedAt: user.updatedAt,
     };
     const generateToken = generateAuthToken(user._id);
-    // const newToken = await new Token({
-    //     user: user._id,
-    //     ...generateToken,
-    // }).save();
-    // if (!newToken) {
-    //     throw new InternalServerError('Authentication token generation failed');
-    // }
     return {
         user: userData,
         accessToken: generateToken.accessToken,
@@ -81,10 +72,7 @@ const refreshToken = async (refreshToken) => {
         throw new UnauthorizedError('Not authorized, token failed');
     }
     const userId = decoded._id || null;
-    const user = await User.findOne({ _id: userId }).populate({
-        path: 'user',
-        select: '-password',
-    });
+    const user = await User.findOne({ _id: userId });
 
     if (!user) {
         throw new UnauthorizedError('Not authorized, token failed');
@@ -111,35 +99,29 @@ const refreshToken = async (refreshToken) => {
     });
 };
 
-const register = async (req, res) => {
+const register = async (request) => {
     // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
 
-    const { name, phone, password } = req.body;
-    const email = req.body.email.toString().toLowerCase();
+    const email = request.email.toString().toLowerCase();
     const userExists = await User.exists({ email });
     if (userExists) {
         throw new InvalidDataError('Tài khoản đã tồn tại');
     }
 
     const user = await User.create({
-        name,
-        email,
-        phone,
-        password,
+        name: request.name,
+        email: email,
+        phone: request.phone,
+        password: request.password,
     });
+
     const emailVerificationToken = user.getEmailVerificationToken();
     await user.save();
-    const url = `${process.env.CLIENT_PAGE_URL}/register/confirm?emailVerificationToken=${emailVerificationToken}`;
     const html = activationMail(user.email, emailVerificationToken, user.name);
 
     //start cron-job
     let scheduledJob = schedule.scheduleJob(`*/${process.env.EMAIL_VERIFY_EXPIED_TIME_IN_MINUTE} * * * *`, async () => {
-        const foundUser = await User.findOneAndDelete({
+        await User.findOneAndDelete({
             _id: user._id,
             isVerified: false,
         }).lean();
@@ -155,10 +137,6 @@ const register = async (req, res) => {
 
     //send verify email
     await sendMail(messageOptions);
-    res.json({
-        message:
-            'Đăng ký tài khoản thành công. Vui lòng truy cập email của bạn để xác minh tài khoản của bạn. Yêu cầu đăng ký sẽ hết hạn trong vòng 24 giờ.',
-    });
 };
 
 const verifyEmail = async (req, res) => {
@@ -242,7 +220,6 @@ const forgotPassword = async (req, res, next) => {
 
     // Send reset password email
     const resetPasswordUrl = `${process.env.CLIENT_PAGE_URL}/reset?resetPasswordToken=${resetPasswordToken}`;
-    // const html = htmlResetEmail({ link: resetPasswordUrl, email, urlLogo: image.logo });
     const html = passwordResetEmail(email, resetPasswordUrl, user.name);
 
     // Set up message options
@@ -284,7 +261,6 @@ const resetPassword = async (req, res) => {
     user.resetPasswordToken = null;
     user.resetPasswordTokenExpiryTime = null;
     await user.save();
-    await Token.deleteMany({ user: user._id }).lean();
     res.json({ message: 'Mật khẩu của bạn đã được đặt lại' });
 };
 
@@ -327,23 +303,6 @@ const getProfile = async (userId) => {
         throw new ItemNotFoundError('Tài khoản không tồn tại');
     }
     return user;
-    // res.json({
-    //     data: {
-    //         user: {
-    //             _id: user._id,
-    //             name: user.name,
-    //             email: user.email,
-    //             role: user.role,
-    //             phone: user.phone,
-    //             avatar: user.avatar,
-    //             gender: user.gender,
-    //             birthday: user.birthday,
-    //             address: user.address,
-    //             createdAt: user.createdAt,
-    //             updatedAt: user.updatedAt,
-    //         },
-    //     },
-    // });
 };
 
 const updateProfile = async (userId, request) => {
@@ -355,9 +314,7 @@ const updateProfile = async (userId, request) => {
     user.name = request.name || user.name;
     user.phone = request.phone || user.phone;
     user.gender = request.gender || user.gender;
-    // user.avatar = req.body.avatar || user.avatar;
     user.birthday = request.birthday || user.birthday;
-    // user.address = req.body.address || user.address;
     const updatedUser = await user.save();
     return {
         _id: updatedUser._id,
@@ -370,23 +327,6 @@ const updateProfile = async (userId, request) => {
         createdAt: updatedUser.createdAt,
         updatedAt: updatedUser.updatedAt,
     };
-    // res.json({
-    //     message: 'Cập nhật thông tin tài khoản thành công',
-    //     data: {
-    //         user: {
-    //             _id: updatedUser._id,
-    //             name: updatedUser.name,
-    //             email: updatedUser.email,
-    //             role: updatedUser.role,
-    //             phone: updatedUser.phone,
-    //             avatar: updatedUser.avatar,
-    //             gender: updatedUser.gender,
-    //             birthday: updatedUser.birthday,
-    //             createdAt: updatedUser.createdAt,
-    //             updatedAt: updatedUser.updatedAt,
-    //         },
-    //     },
-    // });
 };
 
 const changePassword = async (req, res) => {
@@ -408,7 +348,6 @@ const changePassword = async (req, res) => {
     }
     user.password = newPassword;
     await user.save();
-    await Token.deleteMany({ user: user._id });
     res.json({
         message: 'Thay đổi mật khẩu thành công',
     });
@@ -423,27 +362,19 @@ const getUserAddress = async (req, res) => {
     });
 };
 
-const createUserAddress = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-
-    const { name, phone, province, district, ward, specificAddress } = req.body;
-    let { isDefault } = req.body || false;
-    if (isDefault) {
-        req.user.address.map((item) => {
+const createUserAddress = async (currentUser, request) => {
+    if (request.isDefault) {
+        currentUser.address.map((item) => {
             item.isDefault = false;
         });
     }
-    if (req.user.address.length == 0) {
-        isDefault = true;
+    if (currentUser.address.length == 0) {
+        request.isDefault = true;
     }
-    req.user.address.push({ name, phone, province, district, ward, specificAddress, isDefault });
-    await req.user.save();
-    res.json({ message: 'Thêm địa chỉ thành công', data: { addressList: req.user.address } });
+
+    currentUser.address.push(request);
+    const savedUser = await currentUser.user.save();
+    return savedUser.address;
 };
 
 const updateUserAddress = async (req, res) => {
@@ -461,7 +392,7 @@ const updateUserAddress = async (req, res) => {
             item.isDefault = false;
         }
         if (item._id == addressId) {
-            if (isDefault == false && item.isDefault == true) {
+            if (!isDefault && item.isDefault) {
                 throw new InvalidDataError(
                     'Không thể bỏ xác nhận đặt làm địa chỉ mặc định khi địa chỉ đang được chọn làm mặc định',
                 );
@@ -546,7 +477,6 @@ const addUserDiscountCode = async (req, res) => {
     req.user.discountCode.push(existedDiscountCode._id);
     await req.user.save();
     await req.user.populate('discountCode');
-    // const user = await User.findById(req.user._id).populate('discountCode');
     res.json({
         message: 'Success',
         data: {
