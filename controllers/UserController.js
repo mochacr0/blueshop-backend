@@ -81,10 +81,11 @@ UserController.post(
             phone: req.body.phone,
             province: req.body.province,
             district: req.body.district,
-            ward: req.body.specificAddress,
+            ward: req.body.ward,
+            specificAddress: req.body.specificAddress,
             isDefault: req.body.isDefault,
         };
-        res.json(await UserService.createUserAddress(req.user, createAddressRequest));
+        res.json(await UserService.createUserAddress(createAddressRequest, req.user));
     }),
 );
 
@@ -92,8 +93,21 @@ UserController.put(
     '/address/:id/update-user-address',
     validate.userAddress,
     protect,
-    asyncHandler(UserService.updateUserAddress),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const updateAddressRequest = {
+            name: req.body.name,
+            phone: req.body.phone,
+            province: req.body.province,
+            district: req.body.district,
+            ward: req.body.ward,
+            specificAddress: req.body.specificAddress,
+            isDefault: req.body.isDefault,
+        };
+        res.json(await UserService.updateUserAddress(req.params.id, updateAddressRequest, req.user));
+    }),
 );
+
 UserController.delete('/address/:id/remove-user-address', protect, asyncHandler(UserService.removeUserAddress));
 UserController.get('/address/get-user-address-list', protect, asyncHandler(UserService.getUserAddress));
 UserController.get(

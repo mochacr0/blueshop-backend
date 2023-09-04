@@ -362,7 +362,7 @@ const getUserAddress = async (req, res) => {
     });
 };
 
-const createUserAddress = async (currentUser, request) => {
+const createUserAddress = async (request, currentUser) => {
     if (request.isDefault) {
         currentUser.address.map((item) => {
             item.isDefault = false;
@@ -373,45 +373,38 @@ const createUserAddress = async (currentUser, request) => {
     }
 
     currentUser.address.push(request);
-    const savedUser = await currentUser.user.save();
+    const savedUser = await currentUser.save();
     return savedUser.address;
 };
 
-const updateUserAddress = async (req, res) => {
+const updateUserAddress = async (addressId, request, currentUser) => {
     // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const addressId = req.params.id || null;
-    const { name, phone, province, district, ward, specificAddress, isDefault } = req.body;
     let count = 0;
-    req.user.address.map((item) => {
-        if (isDefault) {
+    currentUser.address.map((item) => {
+        if (request.isDefault) {
             item.isDefault = false;
         }
         if (item._id == addressId) {
-            if (!isDefault && item.isDefault) {
+            if (!request.isDefault && item.isDefault) {
                 throw new InvalidDataError(
                     'Không thể bỏ xác nhận đặt làm địa chỉ mặc định khi địa chỉ đang được chọn làm mặc định',
                 );
             }
-            item.name = name;
-            item.phone = phone;
-            item.province = province;
-            item.district = district;
-            item.ward = ward;
-            item.specificAddress = specificAddress;
-            item.isDefault = isDefault;
+            item.name = request.name;
+            item.phone = request.phone;
+            item.province = request.province;
+            item.district = request.district;
+            item.ward = request.ward;
+            item.specificAddress = request.specificAddress;
+            item.isDefault = request.isDefault;
             count++;
         }
     });
     if (count <= 0) {
         throw new UnprocessableContentError('Địa chỉ không tồn tại');
     }
-    await req.user.save();
-    res.json({ message: 'Cập nhật địa chỉ thành công', data: { addressList: req.user.address } });
+    const savedUser = await currentUser.save();
+    return savedUser.address;
 };
 
 const removeUserAddress = async (req, res) => {
