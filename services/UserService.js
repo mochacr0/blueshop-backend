@@ -56,13 +56,13 @@ const login = async (email, password) => {
         updatedAt: user.updatedAt,
     };
     const generateToken = generateAuthToken(user._id);
-    const newToken = await new Token({
-        user: user._id,
-        ...generateToken,
-    }).save();
-    if (!newToken) {
-        throw new InternalServerError('Authentication token generation failed');
-    }
+    // const newToken = await new Token({
+    //     user: user._id,
+    //     ...generateToken,
+    // }).save();
+    // if (!newToken) {
+    //     throw new InternalServerError('Authentication token generation failed');
+    // }
     return {
         user: userData,
         accessToken: generateToken.accessToken,
@@ -70,54 +70,47 @@ const login = async (email, password) => {
     };
 };
 
-const refreshToken = async (req, res) => {
-    if (!req.body.refreshToken || req.body.refreshToken?.toString().trim() == '') {
-        res.status(401);
+const refreshToken = async (refreshToken) => {
+    if (!refreshToken || refreshToken?.toString().trim() == '') {
         throw new UnauthorizedError('Not authorized, no token');
     }
-    const refreshToken = req.body.refreshToken.toString();
-
+    let decoded;
     try {
-        const decoded = jwt.verify(refreshToken, process.env.REFRESH_JWT_SECRET);
-        const userId = decoded._id || null;
-        // const user = await User.findOne({ _id: userId, isVerified: true }).select('-password');
-        const verifyToken = await Token.findOne({ user: userId, refreshToken: refreshToken }).populate({
-            path: 'user',
-            select: '-password',
-        });
-
-        if (!verifyToken || !verifyToken.user) {
-            throw new UnauthorizedError('Not authorized, token failed');
-        }
-        const generateToken = generateAuthToken(verifyToken.user._id);
-        verifyToken.accessToken = generateToken.accessToken;
-        verifyToken.refreshToken = generateToken.refreshToken;
-        verifyToken.expiresIn = generateToken.expiresIn;
-        await verifyToken.save();
-        const userData = {
-            _id: verifyToken.user._id,
-            name: verifyToken.user.name,
-            email: verifyToken.user.email,
-            role: verifyToken.user.role,
-            phone: verifyToken.user.phone,
-            avatar: verifyToken.user.avatar,
-            gender: verifyToken.user.gender,
-            birthday: verifyToken.user.birthday,
-            address: verifyToken.user.address,
-            createdAt: verifyToken.user.createdAt,
-            updatedAt: verifyToken.user.updatedAt,
-        };
-        res.json({
-            data: {
-                user: userData,
-                accessToken: generateToken.accessToken,
-                refreshToken: generateToken.refreshToken,
-            },
-        });
-    } catch (error) {
+        decoded = jwt.verify(refreshToken, process.env.REFRESH_JWT_SECRET);
+    } catch (err) {
         throw new UnauthorizedError('Not authorized, token failed');
     }
+    const userId = decoded._id || null;
+    const user = await User.findOne({ _id: userId }).populate({
+        path: 'user',
+        select: '-password',
+    });
+
+    if (!user) {
+        throw new UnauthorizedError('Not authorized, token failed');
+    }
+
+    const generateToken = generateAuthToken(user._id);
+    const userData = {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        avatar: user.avatar,
+        gender: user.gender,
+        birthday: user.birthday,
+        address: user.address,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+    };
+    res.json({
+        user: userData,
+        accessToken: generateToken.accessToken,
+        refreshToken: generateToken.refreshToken,
+    });
 };
+
 const register = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);

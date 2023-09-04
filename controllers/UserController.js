@@ -38,7 +38,13 @@ UserController.post(
     }),
 );
 
-UserController.post('/refresh-token', asyncHandler(UserService.refreshToken));
+UserController.post(
+    '/refresh-token',
+    asyncHandler(async (req, res) => {
+        res.json(await UserService.refreshToken(req.body.refreshToken));
+    }),
+);
+
 UserController.post('/register', validate.register, asyncHandler(UserService.register));
 UserController.put(
     '/profile',
