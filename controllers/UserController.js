@@ -178,7 +178,15 @@ UserController.patch(
     }),
 );
 
-UserController.patch('/auth/reset-password', validate.resetPassword, asyncHandler(UserService.resetPassword));
+UserController.patch(
+    '/auth/reset-password',
+    validate.resetPassword,
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        res.json(await UserService.resetPassword(req.query.resetPasswordToken, req.body.newPassword));
+    }),
+);
+
 UserController.patch('/auth/cancel-reset-password', asyncHandler(UserService.cancelResetPassword));
 UserController.get('/oauth2/google', passport.authenticate('google', { scope: ['email', 'profile'] }));
 UserController.get(

@@ -221,15 +221,9 @@ const forgotPassword = async (email) => {
     return 'Yêu cầu đặt lại mật khẩu thành công. Hãy kiểm tra hộp thư email của bạn';
 };
 
-const resetPassword = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const { newPassword } = req.body;
-    const { resetPasswordToken } = req.query;
+const resetPassword = async (resetPasswordToken, newPassword) => {
+    // const { newPassword } = req.body;
+    // const { resetPasswordToken } = req.query;
     const hashedToken = crypto.createHash('sha256').update(resetPasswordToken).digest('hex');
     const user = await User.findOne({
         resetPasswordToken: hashedToken,
@@ -246,7 +240,7 @@ const resetPassword = async (req, res) => {
     user.resetPasswordToken = null;
     user.resetPasswordTokenExpiryTime = null;
     await user.save();
-    res.json({ message: 'Mật khẩu của bạn đã được đặt lại' });
+    return 'Mật khẩu của bạn đã được đặt lại';
 };
 
 const cancelResetPassword = async (req, res) => {
