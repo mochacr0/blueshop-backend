@@ -89,15 +89,15 @@ const updateBanner = async (bannerId, request) => {
     return await banner.save();
 };
 
-const deleteBanner = async (req, res) => {
-    const deletedBanner = await Banner.findByIdAndDelete(req.params.id).lean();
+const deleteBanner = async (bannerId) => {
+    const deletedBanner = await Banner.findByIdAndDelete(bannerId).lean();
     if (!deletedBanner) {
         throw new ItemNotFoundError('Banner không tồn tại');
     }
     let url = deletedBanner.image;
     const publicId = url?.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'));
     await cloudinaryRemove('FashionShop/banners/' + publicId);
-    res.json({ message: 'Xóa banner thành công' });
+    return 'Xóa banner thành công';
 };
 
 const BannerService = {

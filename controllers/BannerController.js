@@ -62,7 +62,14 @@ BannerController.put(
         res.json(await BannerService.updateBanner(bannerId, createBannerRequest));
     }),
 );
-BannerController.delete('/:id', protect, auth('staff', 'admin'), asyncHandler(BannerService.deleteBanner));
+BannerController.delete(
+    '/:id',
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(async (req, res) => {
+        res.json(await BannerService.deleteBanner(req.params.id));
+    }),
+);
 // bannerRouter.patch('/:id/increaseIndex', protect, auth('staff', 'admin'), asyncHandler(bannerController.increaseIndex));
 
 // bannerRouter.patch('/:id/decreaseIndex', protect, auth('staff', 'admin'), asyncHandler(bannerController.decreaseIndex));
