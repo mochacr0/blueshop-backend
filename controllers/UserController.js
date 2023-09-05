@@ -118,7 +118,14 @@ UserController.delete(
     }),
 );
 
-UserController.get('/address/get-user-address-list', protect, asyncHandler(UserService.getUserAddress));
+UserController.get(
+    '/address/get-user-address-list',
+    protect,
+    asyncHandler(async (req, res) => {
+        res.json(await UserService.getUserAddress(req.user));
+    }),
+);
+
 UserController.get(
     '/discount-code/get-user-discount-code-list',
     protect,

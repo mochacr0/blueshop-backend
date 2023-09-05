@@ -353,13 +353,8 @@ const changePassword = async (req, res) => {
     });
 };
 
-const getUserAddress = async (req, res) => {
-    res.json({
-        message: 'Success',
-        data: {
-            addressList: req.user.address || [],
-        },
-    });
+const getUserAddress = async (currentUser) => {
+    return currentUser.address;
 };
 
 const createUserAddress = async (request, currentUser) => {
