@@ -183,8 +183,7 @@ const verifyEmail = async (emailVerificationToken) => {
     };
 };
 
-const cancelVerifyEmail = async (req, res, next) => {
-    const emailVerificationToken = req.query.emailVerificationToken.toString().trim();
+const cancelVerifyEmail = async (emailVerificationToken) => {
     if (!emailVerificationToken || emailVerificationToken === '') {
         throw new InvalidDataError('Mã thông báo xác minh email không hợp lệ');
     }
@@ -193,7 +192,7 @@ const cancelVerifyEmail = async (req, res, next) => {
     if (!user) {
         throw new UnprocessableContentError('Mã thông báo xác minh email không tồn tại');
     }
-    res.json({ message: 'Hủy xác minh email thành công' });
+    return 'Hủy xác minh email thành công';
 };
 
 const forgotPassword = async (req, res, next) => {
