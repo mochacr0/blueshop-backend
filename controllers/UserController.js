@@ -108,7 +108,16 @@ UserController.put(
     }),
 );
 
-UserController.delete('/address/:id/remove-user-address', protect, asyncHandler(UserService.removeUserAddress));
+UserController.delete(
+    '/address/:id/remove-user-address',
+    protect,
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const addressId = req.params.id || null;
+        res.json(await UserService.removeUserAddress(addressId, req.user));
+    }),
+);
+
 UserController.get('/address/get-user-address-list', protect, asyncHandler(UserService.getUserAddress));
 UserController.get(
     '/discount-code/get-user-discount-code-list',

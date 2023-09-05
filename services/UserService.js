@@ -407,15 +407,9 @@ const updateUserAddress = async (addressId, request, currentUser) => {
     return savedUser.address;
 };
 
-const removeUserAddress = async (req, res) => {
+const removeUserAddress = async (addressId, currentUser) => {
     // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const addressId = req.params.id || null;
-    const newAddressList = req.user.address.filter((item) => {
+    const newAddressList = currentUser.address.filter((item) => {
         if (item._id == addressId) {
             if (item.isDefault) {
                 throw new InvalidDataError('Không thể xóa địa chỉ đang được đặt làm địa chỉ mặc định');
@@ -426,12 +420,12 @@ const removeUserAddress = async (req, res) => {
             return true;
         }
     });
-    if (newAddressList.length == req.user.address.length) {
+    if (newAddressList.length == currentUser.address.length) {
         throw new UnprocessableContentError('Địa chỉ không tồn tại');
     }
-    req.user.address = newAddressList;
-    await req.user.save();
-    res.json({ message: 'Xóa địa chỉ thành công', data: { addressList: req.user.address } });
+    currentUser.address = newAddressList;
+    const savedUser = await currentUser.save();
+    return savedUser.address;
 };
 
 const getUserDiscountCode = async (req, res) => {
