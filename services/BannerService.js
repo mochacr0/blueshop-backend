@@ -25,56 +25,40 @@ const getBannerById = async (bannerId) => {
     return banner;
 };
 
-const createBanner = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const { title, linkTo, type } = req.body;
-    const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : '';
-    let image = '';
-    if (imageFile && imageFile.trim() !== '') {
-        const uploadImage = await cloudinaryUpload(imageFile, 'FashionShop/banners');
+const createBanner = async (request) => {
+    request.imageFile = request.imageFile ? JSON.parse(request.imageFile) : '';
+    let imageUrl = '';
+    if (request.imageFile && request.imageFile.trim() !== '') {
+        const uploadImage = await cloudinaryUpload(request.imageFile, 'FashionShop/banners');
         if (!uploadImage) {
             throw new Error('Xảy ra lỗi khi upload ảnh');
         }
-        image = uploadImage.secure_url;
+        imageUrl = uploadImage.secure_url;
     } else {
         throw new InvalidDataError('Hình ảnh banner không được để trống');
     }
 
     const banner = new Banner({
-        title,
-        image,
-        linkTo,
-        type,
+        title: request.title,
+        image: imageUrl,
+        linkTo: request.linkTo,
+        type: request.type,
     });
-    const newBanner = await banner.save();
-    return res.json({ message: 'Thêm banner thành công', data: { newBanner } });
+    return await banner.save();
 };
 
-const updateBanner = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const { title, image, linkTo, updatedVersion } = req.body;
-
-    const banner = await Banner.findOne({ _id: req.params.id });
+const updateBanner = async (bannerId, request) => {
+    const banner = await Banner.findOne({ _id: bannerId });
     if (!banner) {
         throw new ItemNotFoundError('Banner không tồn tại');
     }
-    if (banner.updatedVersion != updatedVersion) {
+    if (banner.updatedVersion != request.updatedVersion) {
         throw new UnprocessableContentError(
             'Ảnh bìa vừa được cập nhật thông tin, vui lòng làm mới lại trang để lấy thông tin mới nhất',
         );
     }
     banner.updatedVersion = Number(banner.updatedVersion) + 1;
-    const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : '';
+    const imageFile = request.imageFile ? JSON.parse(request.imageFile) : '';
     let imageUrl = '';
     if (imageFile && imageFile.trim() !== '') {
         const uploadImage = await cloudinaryUpload(imageFile, 'FashionShop/banners');
@@ -82,9 +66,9 @@ const updateBanner = async (req, res) => {
             throw new InternalServerError('Xảy ra lỗi khi upload ảnh');
         }
         imageUrl = uploadImage.secure_url;
-    } else if (image && image.trim() !== '' && banner.image != image) {
-        if (banner.image !== image) {
-            const uploadImage = await cloudinaryUpload(image, 'FashionShop/banners');
+    } else if (request.image && request.image.trim() !== '' && banner.image != request.image) {
+        if (banner.image !== request.image) {
+            const uploadImage = await cloudinaryUpload(request.image, 'FashionShop/banners');
             if (!uploadImage) {
                 throw new InternalServerError('Xảy ra lỗi khi upload ảnh');
             }
@@ -99,11 +83,10 @@ const updateBanner = async (req, res) => {
         await cloudinaryRemove('FashionShop/banners/' + publicId);
     }
 
-    banner.title = title || banner.title;
+    banner.title = request.title || banner.title;
     banner.image = imageUrl || banner.image;
-    banner.linkTo = linkTo || banner.linkTo;
-    const updateBanner = await banner.save();
-    res.json({ message: 'Cập nhật banner thành công', data: { updateBanner } });
+    banner.linkTo = request.linkTo || banner.linkTo;
+    return await banner.save();
 };
 
 const deleteBanner = async (req, res) => {
