@@ -3,8 +3,8 @@ import Variant from '../models/variant.model.js';
 import { validationResult } from 'express-validator';
 import { InvalidDataError, ItemNotFoundError, UnprocessableContentError } from '../utils/errors.js';
 
-const getCart = async (req, res) => {
-    const cart = await Cart.findOne({ user: req.user._id })
+const getCart = async (currentUser) => {
+    const cart = await Cart.findOne({ user: currentUser._id })
         .populate({
             path: 'cartItems.variant',
             populate: { path: 'product' },
@@ -13,23 +13,15 @@ const getCart = async (req, res) => {
     if (!cart) {
         throw new ItemNotFoundError('Giỏ hàng không tồn tại');
     }
-    res.json({ message: 'Success', data: { cartItems: [...cart.cartItems] } });
+    return cart.cartItems;
 };
 
-const addToCart = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const { variantId } = req.body;
-    const quantity = parseInt(req.body.quantity);
-    if (!quantity || quantity <= 0) {
+const addToCart = async (request, currentUser) => {
+    if (!request.quantity || request.quantity <= 0) {
         throw new InvalidDataError('Số lượng không hợp lệ');
     }
-    const findCart = Cart.findOne({ user: req.user._id });
-    const findVariant = Variant.findOne({ _id: variantId }).lean();
+    const findCart = Cart.findOne({ user: currentUser._id });
+    const findVariant = Variant.findOne({ _id: request.variantId }).lean();
     const [cart, variant] = await Promise.all([findCart, findVariant]);
     if (!cart) {
         throw new UnprocessableContentError('Giỏ hàng không tồn tại');
@@ -43,23 +35,23 @@ const addToCart = async (req, res) => {
     if (addedItemIndex !== -1) {
         currentQuantity = cart.cartItems[addedItemIndex].quantity;
     }
-    isQuantityValid = quantity + currentQuantity <= variant.quantity;
+    isQuantityValid = request.quantity + currentQuantity <= variant.quantity;
     if (!isQuantityValid) {
         throw new InvalidDataError('Số lượng mặt hàng thêm vào giỏ đã vượt số lượng mặt hàng có trong kho');
     }
     if (addedItemIndex !== -1) {
-        cart.cartItems[addedItemIndex].quantity = quantity + currentQuantity;
+        cart.cartItems[addedItemIndex].quantity = request.quantity + currentQuantity;
     } else {
         const cartItem = {
             variant: variant._id,
-            quantity: quantity,
+            quantity: request.quantity,
             attributes: [...variant.attributes],
         };
         cart.cartItems.push(cartItem);
     }
 
-    await cart.save();
-    res.json({ message: 'Sản phẩm đã được thêm vào giỏ', data: { cartItems: [...cart.cartItems] } });
+    const savedCart = await cart.save();
+    return savedCart.cartItems;
 };
 
 const updateCartItem = async (req, res) => {
