@@ -10,24 +10,24 @@ import { InvalidDataError, ItemNotFoundError, UnprocessableContentError } from '
 const TYPE_DISCOUNT_MONEY = 1;
 const TYPE_DISCOUNT_PERCENT = 2;
 
-const getDiscountCode = async (req, res) => {
-    const keyword = req.query.keyword
+const getDiscountCode = async (keyword, currentUser) => {
+    const keywordFilter = keyword
         ? {
               code: {
-                  $regex: req.query.keyword,
+                  $regex: keyword,
                   $options: 'i',
               },
           }
         : {};
-    const discountCode = await DiscountCode.find({ ...keyword, disabled: false })
+    const discountCode = await DiscountCode.find({ ...keywordFilter, disabled: false })
         .sort({ _id: -1 })
         .lean();
     let discountCodes = discountCode;
-    if (req.user && req.user.role == 'user') {
+    if (currentUser && currentUser.role == 'user') {
         discountCodes = [];
         discountCode.map((discount) => {
             if (discount.endDate >= new Date()) {
-                if (req.user && req.user.discountCode.includes(discount._id)) {
+                if (currentUser && currentUser.discountCode.includes(discount._id)) {
                     discount.isAdd = true;
                 } else {
                     discount.isAdd = false;
@@ -37,7 +37,7 @@ const getDiscountCode = async (req, res) => {
         });
     }
 
-    return res.json({ message: 'Success', data: { discountCode: discountCodes } });
+    return discountCodes;
 };
 
 const getDiscountCodeById = async (req, res) => {

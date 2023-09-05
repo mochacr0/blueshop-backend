@@ -6,7 +6,13 @@ import validate from '../middleware/validate.middleware.js';
 
 const VoucherController = express.Router();
 
-VoucherController.get('/', getUserData, asyncHandler(VoucherService.getDiscountCode));
+VoucherController.get(
+    '/',
+    getUserData,
+    asyncHandler(async (req, res) => {
+        res.json(await VoucherService.getDiscountCode(req.query.keyword, req.user));
+    }),
+);
 
 VoucherController.get('/:id', protect, auth('staff', 'admin'), asyncHandler(VoucherService.getDiscountCodeById));
 VoucherController.get('/code/:code', asyncHandler(VoucherService.getDiscountCodeByCode));
