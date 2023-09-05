@@ -423,25 +423,13 @@ const removeUserAddress = async (addressId, currentUser) => {
     return savedUser.address;
 };
 
-const getUserDiscountCode = async (req, res) => {
-    await req.user.populate('discountCode');
-    res.json({
-        message: 'Success',
-        data: {
-            discountCodeList: req.user.discountCode,
-        },
-    });
+const getUserDiscountCode = async (currentUser) => {
+    await currentUser.populate('discountCode');
+    return currentUser.discountCode;
 };
 
-const addUserDiscountCode = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const code = req.body.discountCode;
-    const existedDiscountCode = await DiscountCode.findOne({ code: code, disabled: false }).lean();
+const addUserDiscountCode = async (discountCode, currentUser) => {
+    const existedDiscountCode = await DiscountCode.findOne({ code: discountCode, disabled: false }).lean();
     if (!existedDiscountCode) {
         throw new UnprocessableContentError('Mã giảm giá không tồn tại');
     }
@@ -453,19 +441,15 @@ const addUserDiscountCode = async (req, res) => {
             throw new InvalidDataError('Mã giảm giá đã được sử dụng hết');
         }
     }
-    if (req.user.discountCode.indexOf(existedDiscountCode._id) != -1) {
+    if (currentUser.discountCode.indexOf(existedDiscountCode._id) != -1) {
         throw new InvalidDataError('Mã giảm giá đã tồn tại trong danh sách mã giảm giá của bạn');
     }
-    req.user.discountCode.push(existedDiscountCode._id);
-    await req.user.save();
-    await req.user.populate('discountCode');
-    res.json({
-        message: 'Success',
-        data: {
-            discountCodeList: req.user.discountCode || [],
-        },
-    });
+    currentUser.discountCode.push(existedDiscountCode._id);
+    const savedUser = await currentUser.save();
+    await savedUser.populate('discountCode');
+    return savedUser.discountCode;
 };
+
 const UserService = {
     login,
     refreshToken,

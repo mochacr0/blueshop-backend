@@ -112,7 +112,6 @@ UserController.delete(
     '/address/:id/remove-user-address',
     protect,
     asyncHandler(async (req, res) => {
-        validateRequest(req);
         const addressId = req.params.id || null;
         res.json(await UserService.removeUserAddress(addressId, req.user));
     }),
@@ -129,15 +128,22 @@ UserController.get(
 UserController.get(
     '/discount-code/get-user-discount-code-list',
     protect,
-    asyncHandler(UserService.getUserDiscountCode),
+    asyncHandler(async (req, res) => {
+        res.json(await UserService.getUserDiscountCode(req.user));
+    }),
 );
+
 UserController.post(
     '/discount-code/user-add-discount-code',
     validate.addUserDiscountCode,
     protect,
     auth('user'),
-    asyncHandler(UserService.addUserDiscountCode),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        res.json(await UserService.addUserDiscountCode(req.body.discountCode, req.user));
+    }),
 );
+
 UserController.patch('/auth/verify-email', asyncHandler(UserService.verifyEmail));
 UserController.patch('/auth/cancel-verify-email', asyncHandler(UserService.cancelVerifyEmail));
 UserController.patch(
