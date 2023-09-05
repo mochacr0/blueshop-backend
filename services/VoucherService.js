@@ -56,114 +56,68 @@ const getDiscountCodeByCode = async (code) => {
     return discountCode;
 };
 
-const createDiscountCode = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const {
-        name,
-        code,
-        discountType,
-        discount,
-        maximumDiscount,
-        startDate,
-        endDate,
-        isUsageLimit,
-        usageLimit,
-        userUseMaximum,
-        applyFor,
-        applicableProducts,
-    } = req.body;
-    const discountCodeExists = await DiscountCode.exists({ code: code });
+const createDiscountCode = async (request) => {
+    const discountCodeExists = await DiscountCode.exists({ code: request.code });
     if (discountCodeExists) {
         throw new InvalidDataError('Mã giảm giá đã tồn tại');
     }
 
     const discountCode = new DiscountCode({
-        name,
-        code,
-        discountType,
-        discount,
-        maximumDiscount: maximumDiscount || 0,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        isUsageLimit,
-        usageLimit,
-        userUseMaximum,
-        applyFor,
-        applicableProducts,
+        name: request.name,
+        code: request.code,
+        discountType: request.discountType,
+        discount: request.discount,
+        maximumDiscount: request.maximumDiscount || 0,
+        startDate: new Date(request.startDate),
+        endDate: new Date(request.endDate),
+        isUsageLimit: request.isUsageLimit,
+        usageLimit: request.usageLimit,
+        userUseMaximum: request.userUseMaximum,
+        applyFor: request.applyFor,
+        applicableProducts: request.applicableProducts,
     });
-    if (discountType == TYPE_DISCOUNT_MONEY) {
-        discountCode.maximumDiscount = discount;
+    if (request.discountType == TYPE_DISCOUNT_MONEY) {
+        discountCode.maximumDiscount = request.discount;
     }
-    const newDiscountCode = await discountCode.save();
-    return res.json({ message: 'Mã giảm giá đã được thêm', data: { newDiscountCode } });
+    return await discountCode.save();
 };
 
-const updateDiscountCode = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const {
-        name,
-        code,
-        discountType,
-        discount,
-        maximumDiscount,
-        startDate,
-        endDate,
-        isUsageLimit,
-        usageLimit,
-        userUseMaximum,
-        applyFor,
-        applicableProducts,
-        updatedVersion,
-    } = req.body;
-    // Check id
-    const discountCodeId = req.params.id || null;
-
+const updateDiscountCode = async (discountCodeId, request) => {
     const currentDiscountCode = await DiscountCode.findOne({ _id: discountCodeId });
     if (!currentDiscountCode) {
         throw new ItemNotFoundError('Mã giảm giá không tồn tại');
     }
-    if (currentDiscountCode.code != code) {
-        const discountCodeExists = await DiscountCode.exists({ code: code });
+    if (currentDiscountCode.code != request.code) {
+        const discountCodeExists = await DiscountCode.exists({ code: request.code });
         if (discountCodeExists) {
             throw new InvalidDataError('Mã giảm giá đã tồn tại');
         }
-        currentDiscountCode.code = code;
+        currentDiscountCode.code = request.code;
     }
-    if (currentDiscountCode.updatedVersion != updatedVersion) {
+    if (currentDiscountCode.updatedVersion != request.updatedVersion) {
         throw new InvalidDataError(
             'Mã giảm giá vừa được cập nhật thông tin, vui lòng làm mới lại trang để lấy thông tin mới nhất',
         );
     }
     currentDiscountCode.updatedVersion = Number(currentDiscountCode.updatedVersion) + 1;
 
-    currentDiscountCode.name = name || currentDiscountCode.name;
-    currentDiscountCode.discountType = discountType || currentDiscountCode.discountType;
+    currentDiscountCode.name = request.name || currentDiscountCode.name;
+    currentDiscountCode.discountType = request.discountType || currentDiscountCode.discountType;
 
-    currentDiscountCode.discount = discount || currentDiscountCode.discount;
-    currentDiscountCode.maximumDiscount = maximumDiscount || currentDiscountCode.maximumDiscount;
-    if (discountType == TYPE_DISCOUNT_MONEY) {
-        currentDiscountCode.maximumDiscount = discount;
+    currentDiscountCode.discount = request.discount || currentDiscountCode.discount;
+    currentDiscountCode.maximumDiscount = request.maximumDiscount || currentDiscountCode.maximumDiscount;
+    if (request.discountType == TYPE_DISCOUNT_MONEY) {
+        currentDiscountCode.maximumDiscount = request.discount;
     }
-    currentDiscountCode.startDate = startDate || currentDiscountCode.startDate;
-    currentDiscountCode.endDate = endDate || currentDiscountCode.endDate;
-    currentDiscountCode.isUsageLimit = isUsageLimit || currentDiscountCode.isUsageLimit;
-    currentDiscountCode.usageLimit = usageLimit || currentDiscountCode.usageLimit;
-    currentDiscountCode.userUseMaximum = userUseMaximum || currentDiscountCode.userUseMaximum;
-    currentDiscountCode.applyFor = applyFor || currentDiscountCode.applyFor;
-    currentDiscountCode.applicableProducts = applicableProducts || currentDiscountCode.applicableProducts;
+    currentDiscountCode.startDate = request.startDate || currentDiscountCode.startDate;
+    currentDiscountCode.endDate = request.endDate || currentDiscountCode.endDate;
+    currentDiscountCode.isUsageLimit = request.isUsageLimit || currentDiscountCode.isUsageLimit;
+    currentDiscountCode.usageLimit = request.usageLimit || currentDiscountCode.usageLimit;
+    currentDiscountCode.userUseMaximum = request.userUseMaximum || currentDiscountCode.userUseMaximum;
+    currentDiscountCode.applyFor = request.applyFor || currentDiscountCode.applyFor;
+    currentDiscountCode.applicableProducts = request.applicableProducts || currentDiscountCode.applicableProducts;
 
-    const updateDiscountCode = await currentDiscountCode.save();
-    return res.json({ success: true, message: 'Cập nhật mã giảm giá thành công', data: { updateDiscountCode } });
+    return await currentDiscountCode.save();
 };
 
 const discountCalculation = async (discountCode, orderItems, currentUser) => {
