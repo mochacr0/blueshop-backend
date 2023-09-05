@@ -17,12 +17,12 @@ const getBanners = async () => {
     return { banners, sliders };
 };
 
-const getBannerById = async (req, res) => {
-    const banner = await Banner.findOne({ _id: req.params.id }).lean();
+const getBannerById = async (bannerId) => {
+    const banner = await Banner.findOne({ _id: bannerId }).lean();
     if (!banner) {
         throw new ItemNotFoundError('Banner không tồn tại');
     }
-    return res.json({ message: 'Success', data: { banner } });
+    return banner;
 };
 
 const createBanner = async (req, res) => {

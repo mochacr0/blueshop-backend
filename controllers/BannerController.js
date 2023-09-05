@@ -14,7 +14,14 @@ BannerController.get(
     }),
 );
 
-BannerController.get('/:id', protect, auth('staff', 'admin'), asyncHandler(BannerService.getBannerById));
+BannerController.get(
+    '/:id',
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(async (req, res) => {
+        res.json(await BannerService.getBannerById(req.params.id));
+    }),
+);
 
 BannerController.post(
     '/',
