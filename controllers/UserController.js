@@ -162,9 +162,22 @@ UserController.patch(
     '/auth/change-password',
     validate.changePassword,
     protect,
-    asyncHandler(UserService.changePassword),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const { currentPassword, newPassword } = req.body;
+        res.json(await UserService.changePassword(currentPassword, newPassword, req.user));
+    }),
 );
-UserController.patch('/auth/forgot-password', validate.forgotPassword, asyncHandler(UserService.forgotPassword));
+
+UserController.patch(
+    '/auth/forgot-password',
+    validate.forgotPassword,
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        res.json(await UserService.forgotPassword(req.body.email));
+    }),
+);
+
 UserController.patch('/auth/reset-password', validate.resetPassword, asyncHandler(UserService.resetPassword));
 UserController.patch('/auth/cancel-reset-password', asyncHandler(UserService.cancelResetPassword));
 UserController.get('/oauth2/google', passport.authenticate('google', { scope: ['email', 'profile'] }));

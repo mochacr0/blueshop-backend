@@ -195,16 +195,8 @@ const cancelVerifyEmail = async (emailVerificationToken) => {
     return 'Hủy xác minh email thành công';
 };
 
-const forgotPassword = async (req, res, next) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
-    }
-    const { email } = req.body;
+const forgotPassword = async (email) => {
     const user = await User.findOne({ email, isVerified: true });
-
     if (!user) {
         throw new UnprocessableContentError('Tài khoản không tồn tại');
     }
@@ -226,9 +218,7 @@ const forgotPassword = async (req, res, next) => {
 
     // Send reset password email
     await sendMail(messageOptions);
-    res.json({
-        message: 'Yêu cầu đặt lại mật khẩu thành công. Hãy kiểm tra hộp thư email của bạn',
-    });
+    return 'Yêu cầu đặt lại mật khẩu thành công. Hãy kiểm tra hộp thư email của bạn';
 };
 
 const resetPassword = async (req, res) => {
@@ -324,28 +314,20 @@ const updateProfile = async (userId, request) => {
     };
 };
 
-const changePassword = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const { currentPassword, newPassword } = req.body;
+const changePassword = async (currentPassword, newPassword, currentUser) => {
+    // const { currentPassword, newPassword } = req.body;
 
-    const user = await User.findById(req.user._id);
-    if (!user) {
-        throw new UnprocessableContentError('Tài khoản không tồn tại');
-    }
-    const isPasswordMatched = await user.matchPassword(currentPassword);
+    // const user = await User.findById(req.user._id);
+    // if (!user) {
+    //     throw new UnprocessableContentError('Tài khoản không tồn tại');
+    // }
+    const isPasswordMatched = await currentUser.matchPassword(currentPassword);
     if (!isPasswordMatched) {
         throw new InvalidDataError('Mật khẩu hiện tại không đúng');
     }
-    user.password = newPassword;
-    await user.save();
-    res.json({
-        message: 'Thay đổi mật khẩu thành công',
-    });
+    currentUser.password = newPassword;
+    await currentUser.save();
+    return 'Thay đổi mật khẩu thành công';
 };
 
 const getUserAddress = async (currentUser) => {
