@@ -10,11 +10,11 @@ import {
     UnprocessableContentError,
 } from '../utils/errors.js';
 
-const getBanners = async (req, res) => {
+const getBanners = async () => {
     const getBanners = Banner.find({ type: 'banner' }).sort({ _id: -1 }).lean();
     const getSliders = Banner.find({ type: 'slider' }).sort({ _id: -1 }).lean();
     const [banners, sliders] = await Promise.all([getBanners, getSliders]);
-    return res.json({ message: 'Success', data: { banners, sliders } });
+    return { banners, sliders };
 };
 
 const getBannerById = async (req, res) => {

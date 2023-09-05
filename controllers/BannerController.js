@@ -7,7 +7,12 @@ import validate from '../middleware/validate.middleware.js';
 
 const BannerController = express.Router();
 
-BannerController.get('/', asyncHandler(BannerService.getBanners));
+BannerController.get(
+    '/',
+    asyncHandler(async (req, res) => {
+        res.json(await BannerService.getBanners());
+    }),
+);
 
 BannerController.get('/:id', protect, auth('staff', 'admin'), asyncHandler(BannerService.getBannerById));
 

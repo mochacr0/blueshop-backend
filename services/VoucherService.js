@@ -1,9 +1,6 @@
-import * as fs from 'fs';
 import DiscountCode from '../models/discountCode.model.js';
-import Variant from '../models/variant.model.js';
-import { validationResult } from 'express-validator';
-import { ObjectId } from 'mongodb';
 import User from '../models/user.model.js';
+import Variant from '../models/variant.model.js';
 import { InvalidDataError, ItemNotFoundError, UnprocessableContentError } from '../utils/errors.js';
 
 //CONSTANT
@@ -25,9 +22,9 @@ const getDiscountCode = async (keyword, currentUser) => {
     let discountCodes = discountCode;
     if (currentUser && currentUser.role == 'user') {
         discountCodes = [];
-        discountCode.map((discount) => {
+        discountCode.forEach((discount) => {
             if (discount.endDate >= new Date()) {
-                if (currentUser && currentUser.discountCode.includes(discount._id)) {
+                if (currentUser.discountCode.includes(discount._id)) {
                     discount.isAdd = true;
                 } else {
                     discount.isAdd = false;
@@ -154,7 +151,7 @@ const discountCalculation = async (discountCode, orderItems, currentUser) => {
                 disabled: false,
                 deleted: false,
             }).populate('product');
-            if (!orderedVariant || !orderedVariant.product?._id) {
+            if (!orderedVariant?.product?._id) {
                 throw new UnprocessableContentError(`Sản phẩm có ID "${orderItem.variant}" không tồn tại`);
             }
             totalProductPrice += orderedVariant.priceSale * orderItem.quantity;
@@ -172,7 +169,7 @@ const discountCalculation = async (discountCode, orderItems, currentUser) => {
         totalPriceProductDiscounted = totalProductPrice;
     } else {
         let count = 0;
-        orderedProductList.map((item) => {
+        orderedProductList.forEach((item) => {
             if (discountCodeExist.applicableProducts.includes(item._id)) {
                 totalPriceProductDiscounted += item.priceSale * item.quantity;
                 count++;
