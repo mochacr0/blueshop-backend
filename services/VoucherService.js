@@ -48,14 +48,14 @@ const getDiscountCodeById = async (discountCodeId) => {
     return discountCode;
 };
 
-const getDiscountCodeByCode = async (req, res) => {
-    const code = req.params.code || '';
+const getDiscountCodeByCode = async (code) => {
     const discountCode = await DiscountCode.findOne({ code: code }).lean();
     if (!discountCode) {
         throw new ItemNotFoundError('Mã giảm giá không tồn tại');
     }
-    return res.json({ message: 'Success', data: { discountCode: discountCode } });
+    return discountCode;
 };
+
 const createDiscountCode = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
@@ -166,14 +166,7 @@ const updateDiscountCode = async (req, res) => {
     return res.json({ success: true, message: 'Cập nhật mã giảm giá thành công', data: { updateDiscountCode } });
 };
 
-const discountCalculation = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const { orderItems, discountCode } = req.body;
+const discountCalculation = async (discountCode, orderItems, currentUser) => {
     const discountCodeExist = await DiscountCode.findOne({ code: String(discountCode), disabled: false });
     if (!discountCodeExist) {
         throw new UnprocessableContentError('Mã giảm giá không tồn tại');
@@ -189,12 +182,12 @@ const discountCalculation = async (req, res) => {
     }
     if (discountCodeExist.userUseMaximum > 1) {
         const countUser = discountCodeExist.usedBy.filter((item) => {
-            return item.toString() == req.user._id.toString();
+            return item.toString() == currentUser._id.toString();
         });
         if (countUser.length >= discountCodeExist.userUseMaximum) {
             throw new InvalidDataError('Bạn đã hết lượt sử dụng mã giảm giá này');
         }
-    } else if (discountCodeExist.usedBy.includes(req.user._id)) {
+    } else if (discountCodeExist.usedBy.includes(currentUser._id)) {
         throw new InvalidDataError('Bạn đã hết lượt sử dụng mã giảm giá này');
     }
 
@@ -248,13 +241,7 @@ const discountCalculation = async (req, res) => {
             discount = discountCodeExist.maximumDiscount;
         }
     }
-    res.json({
-        message: 'Success',
-        data: {
-            totalDiscount: discount,
-            discountCode: discountCodeExist.code,
-        },
-    });
+    return { totalDiscount: discount, discountCode: discountCodeExist.code };
 };
 
 const deleteDiscountCode = async (req, res) => {

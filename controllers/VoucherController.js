@@ -3,6 +3,7 @@ import asyncHandler from 'express-async-handler';
 import { protect, auth, getUserData } from '../middleware/auth.middleware.js';
 import VoucherService from '../services/VoucherService.js';
 import validate from '../middleware/validate.middleware.js';
+import validateRequest from '../utils/validateRequest.js';
 
 const VoucherController = express.Router();
 
@@ -23,13 +24,23 @@ VoucherController.get(
     }),
 );
 
-VoucherController.get('/code/:code', asyncHandler(VoucherService.getDiscountCodeByCode));
+VoucherController.get(
+    '/code/:code',
+    asyncHandler(async (req, res) => {
+        res.json(await VoucherService.getDiscountCodeByCode(req.params.code));
+    }),
+);
+
 VoucherController.post(
     '/discount-calculation',
     validate.discountCalculation,
     protect,
     auth('user'),
-    asyncHandler(VoucherService.discountCalculation),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const { discountCode, orderItems } = req.body;
+        res.json(await VoucherService.discountCalculation(discountCode, orderItems, req.user));
+    }),
 );
 VoucherController.post(
     '/',
