@@ -187,7 +187,7 @@ UserController.patch(
     }),
 );
 
-UserController.patch('/auth/cancel-reset-password', asyncHandler(UserService.cancelResetPassword));
+// UserController.patch('/auth/cancel-reset-password', asyncHandler(UserService.cancelResetPassword));
 UserController.get('/oauth2/google', passport.authenticate('google', { scope: ['email', 'profile'] }));
 UserController.get(
     '/login/oauth2/code/google',
@@ -199,4 +199,5 @@ UserController.get(
         );
     },
 );
+
 export default UserController;

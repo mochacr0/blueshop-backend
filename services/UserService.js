@@ -100,8 +100,6 @@ const refreshToken = async (refreshToken) => {
 };
 
 const register = async (request) => {
-    // Validate the request data using express-validator
-
     const email = request.email.toString().toLowerCase();
     const userExists = await User.exists({ email });
     if (userExists) {
@@ -169,13 +167,6 @@ const verifyEmail = async (emailVerificationToken) => {
         cartItems: [],
     });
     const generateToken = generateAuthToken(verifiedUser._id);
-    // const newToken = await new Token({
-    //     user: verifiedUser._id,
-    //     ...generateToken,
-    // }).save();
-    // if (!newToken) {
-    //     throw new InternalServerError('Authentication token generation failed');
-    // }
     return {
         user: userData,
         accessToken: generateToken.accessToken,
@@ -222,8 +213,6 @@ const forgotPassword = async (email) => {
 };
 
 const resetPassword = async (resetPasswordToken, newPassword) => {
-    // const { newPassword } = req.body;
-    // const { resetPasswordToken } = req.query;
     const hashedToken = crypto.createHash('sha256').update(resetPasswordToken).digest('hex');
     const user = await User.findOne({
         resetPasswordToken: hashedToken,
@@ -252,9 +241,6 @@ const cancelResetPassword = async (req, res) => {
     const user = await User.findOneAndUpdate(
         {
             resetPasswordToken: hashedToken,
-            // resetPasswordTokenExpiryTime: {
-            //     $gte: Date.now() * process.env.RESET_PASSWORD_EXPIRY_TIME_IN_MINUTE * 60 * 1000,
-            // },
             isVerified: true,
         },
         {
@@ -285,7 +271,6 @@ const getProfile = async (userId) => {
 };
 
 const updateProfile = async (userId, request) => {
-    // Validate the request data using express-validator
     const user = await User.findById(userId);
     if (!user) {
         throw new UnprocessableContentError('Tài khoản không tồn tại');
@@ -309,12 +294,6 @@ const updateProfile = async (userId, request) => {
 };
 
 const changePassword = async (currentPassword, newPassword, currentUser) => {
-    // const { currentPassword, newPassword } = req.body;
-
-    // const user = await User.findById(req.user._id);
-    // if (!user) {
-    //     throw new UnprocessableContentError('Tài khoản không tồn tại');
-    // }
     const isPasswordMatched = await currentUser.matchPassword(currentPassword);
     if (!isPasswordMatched) {
         throw new InvalidDataError('Mật khẩu hiện tại không đúng');
@@ -344,7 +323,6 @@ const createUserAddress = async (request, currentUser) => {
 };
 
 const updateUserAddress = async (addressId, request, currentUser) => {
-    // Validate the request data using express-validator
     let count = 0;
     currentUser.address.map((item) => {
         if (request.isDefault) {
@@ -374,7 +352,6 @@ const updateUserAddress = async (addressId, request, currentUser) => {
 };
 
 const removeUserAddress = async (addressId, currentUser) => {
-    // Validate the request data using express-validator
     const newAddressList = currentUser.address.filter((item) => {
         if (item._id == addressId) {
             if (item.isDefault) {
