@@ -94,6 +94,14 @@ VoucherController.put(
         res.json(await VoucherService.updateDiscountCode(discountCodeId, createVoucherRequest));
     }),
 );
-VoucherController.delete('/:id', protect, auth('staff', 'admin'), asyncHandler(VoucherService.deleteDiscountCode));
+
+VoucherController.delete(
+    '/:id',
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(async (req, res) => {
+        res.json(await VoucherService.deleteDiscountCode(req.params.id));
+    }),
+);
 
 export default VoucherController;

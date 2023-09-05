@@ -198,14 +198,13 @@ const discountCalculation = async (discountCode, orderItems, currentUser) => {
     return { totalDiscount: discount, discountCode: discountCodeExist.code };
 };
 
-const deleteDiscountCode = async (req, res) => {
-    const discountCodeId = req.params.id || null;
+const deleteDiscountCode = async (discountCodeId) => {
     const deletedDiscountCode = await DiscountCode.findByIdAndDelete(discountCodeId);
     if (!deletedDiscountCode) {
         throw new ItemNotFoundError('Mã giảm giá không tồn tại');
     }
     await User.updateMany({ $pull: { discountCode: discountCodeId } });
-    res.json({ message: 'Xóa mã giảm giá thành công' });
+    return 'Xóa mã giảm giá thành công';
 };
 
 const VoucherService = {
