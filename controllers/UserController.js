@@ -144,7 +144,13 @@ UserController.post(
     }),
 );
 
-UserController.patch('/auth/verify-email', asyncHandler(UserService.verifyEmail));
+UserController.patch(
+    '/auth/verify-email',
+    asyncHandler(async (req, res) => {
+        res.json(await UserService.verifyEmail(req.query.emailVerificationToken));
+    }),
+);
+
 UserController.patch('/auth/cancel-verify-email', asyncHandler(UserService.cancelVerifyEmail));
 UserController.patch(
     '/auth/change-password',

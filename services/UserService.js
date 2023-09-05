@@ -92,11 +92,11 @@ const refreshToken = async (refreshToken) => {
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
     };
-    res.json({
+    return {
         user: userData,
         accessToken: generateToken.accessToken,
         refreshToken: generateToken.refreshToken,
-    });
+    };
 };
 
 const register = async (request) => {
@@ -139,8 +139,7 @@ const register = async (request) => {
     await sendMail(messageOptions);
 };
 
-const verifyEmail = async (req, res) => {
-    const emailVerificationToken = req.query.emailVerificationToken?.toString().trim() || '';
+const verifyEmail = async (emailVerificationToken) => {
     if (!emailVerificationToken || emailVerificationToken == '') {
         throw new InvalidDataError('Mã thông báo xác minh email không tồn tại');
     }
@@ -151,7 +150,7 @@ const verifyEmail = async (req, res) => {
     }
     user.isVerified = true;
     user.emailVerificationToken = null;
-    await user.save();
+    const verifiedUser = await user.save();
     const userData = {
         _id: verifiedUser._id,
         name: verifiedUser.name,
@@ -170,21 +169,18 @@ const verifyEmail = async (req, res) => {
         cartItems: [],
     });
     const generateToken = generateAuthToken(verifiedUser._id);
-    const newToken = await new Token({
-        user: verifiedUser._id,
-        ...generateToken,
-    }).save();
-    if (!newToken) {
-        throw new InternalServerError('Authentication token generation failed');
-    }
-    res.json({
-        message: 'Xác minh Tài khoản thành công',
-        data: {
-            user: userData,
-            accessToken: generateToken.accessToken,
-            refreshToken: generateToken.refreshToken,
-        },
-    });
+    // const newToken = await new Token({
+    //     user: verifiedUser._id,
+    //     ...generateToken,
+    // }).save();
+    // if (!newToken) {
+    //     throw new InternalServerError('Authentication token generation failed');
+    // }
+    return {
+        user: userData,
+        accessToken: generateToken.accessToken,
+        refreshToken: generateToken.refreshToken,
+    };
 };
 
 const cancelVerifyEmail = async (req, res, next) => {
