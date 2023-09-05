@@ -14,7 +14,15 @@ VoucherController.get(
     }),
 );
 
-VoucherController.get('/:id', protect, auth('staff', 'admin'), asyncHandler(VoucherService.getDiscountCodeById));
+VoucherController.get(
+    '/:id',
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(async (req, res) => {
+        res.json(await VoucherService.getDiscountCodeById(req.params.id));
+    }),
+);
+
 VoucherController.get('/code/:code', asyncHandler(VoucherService.getDiscountCodeByCode));
 VoucherController.post(
     '/discount-calculation',

@@ -40,15 +40,14 @@ const getDiscountCode = async (keyword, currentUser) => {
     return discountCodes;
 };
 
-const getDiscountCodeById = async (req, res) => {
-    const discountCodeId = req.params.id || '';
-
+const getDiscountCodeById = async (discountCodeId) => {
     const discountCode = await DiscountCode.findOne({ _id: discountCodeId }).lean();
     if (!discountCode) {
         throw new ItemNotFoundError('Mã giảm giá không tồn tại');
     }
-    return res.json({ message: 'Success', data: { discountCode: discountCode } });
+    return discountCode;
 };
+
 const getDiscountCodeByCode = async (req, res) => {
     const code = req.params.code || '';
     const discountCode = await DiscountCode.findOne({ code: code }).lean();
