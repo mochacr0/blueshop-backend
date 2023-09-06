@@ -41,7 +41,21 @@ DeliveryController.get(
     }),
 );
 
-DeliveryController.get('/', protect, auth('staff', 'admin'), asyncHandler(DeliveryService.getDeliveries));
+DeliveryController.get(
+    '/',
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(async (req, res) => {
+        const pageParameter = {
+            limit: Number(req.query.limit) || 20,
+            page: Number(req.query.page) || 0,
+            sortBy: req.query.sortBy,
+            status: req.query.status,
+        };
+        res.json(await DeliveryService.getDeliveries(pageParameter));
+    }),
+);
+
 DeliveryController.post('/shipping-order/fee', validate.calculateFee, asyncHandler(DeliveryService.calculateFee));
 DeliveryController.post('/shipping-order/update-status', asyncHandler(DeliveryService.updateStatus));
 DeliveryController.post('/shipping-order/services', validate.calculateFee, asyncHandler(DeliveryService.calculateFee));

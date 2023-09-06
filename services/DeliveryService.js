@@ -13,22 +13,20 @@ import {
     UnprocessableContentError,
 } from '../utils/errors.js';
 
-const getDeliveries = async (req, res) => {
-    const limit = Number(req.query.limit) || 20; //EDIT HERE
-    const page = Number(req.query.page) || 0;
-    const sortBy = validateConstants(deliveryQueryParams, 'sort', req.query.sortBy);
-    const deliveryStatusFilter = validateConstants(deliveryQueryParams, 'status', req.query.status);
+const getDeliveries = async (pageParameter) => {
+    const sortBy = validateConstants(deliveryQueryParams, 'sort', pageParameter.sortBy);
+    const deliveryStatusFilter = validateConstants(deliveryQueryParams, 'status', pageParameter.status);
     const deliveryFilter = {
         ...deliveryStatusFilter,
     };
     const count = await Delivery.countDocuments(deliveryFilter);
     const deliveries = await Delivery.find({ ...deliveryFilter })
         .populate(['delivery', 'paymentInformation'])
-        .limit(limit)
-        .skip(limit * page)
+        .limit(pageParameter.limit)
+        .skip(pageParameter.limit * pageParameter.page)
         .sort({ ...sortBy })
         .lean();
-    res.json({ data: { deliveries, page, pages: Math.ceil(count / limit), total: count } });
+    return { deliveries, page, pages: Math.ceil(count / limit), total: count };
 };
 
 const getDistrictsByProvinceId = async (provinceId) => {
