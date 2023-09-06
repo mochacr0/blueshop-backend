@@ -3,12 +3,33 @@ import asyncHandler from 'express-async-handler';
 import { protect, auth } from '../middleware/auth.middleware.js';
 import validate from '../middleware/validate.middleware.js';
 import DeliveryService from '../services/DeliveryService.js';
+import validateRequest from '../utils/validateRequest.js';
 
 const DeliveryController = express.Router();
 
-DeliveryController.get('/address/province', asyncHandler(DeliveryService.getProvince));
-DeliveryController.get('/address/:id/district', asyncHandler(DeliveryService.getDistrict));
-DeliveryController.get('/address/:id/ward', asyncHandler(DeliveryService.getWard));
+DeliveryController.get(
+    '/address/province',
+    asyncHandler(async (req, res) => {
+        res.json(await DeliveryService.getProvince());
+    }),
+);
+
+DeliveryController.get(
+    '/address/:id/district',
+    asyncHandler(async (req, res) => {
+        const provinceId = Number(req.params.id) || null;
+        res.json(await DeliveryService.getDistrictsByProvinceId(provinceId));
+    }),
+);
+
+DeliveryController.get(
+    '/address/:id/ward',
+    asyncHandler(async (req, res) => {
+        const districtId = Number(req.params.id) || null;
+        res.json(await DeliveryService.getWardsByDistrictId(districtId));
+    }),
+);
+
 DeliveryController.get(
     '/shipping-order/:id/print/:pageSize',
     protect,

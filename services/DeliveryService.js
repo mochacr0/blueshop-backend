@@ -31,68 +31,52 @@ const getDeliveries = async (req, res) => {
     res.json({ data: { deliveries, page, pages: Math.ceil(count / limit), total: count } });
 };
 
-const getDistrict = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const province_id = Number(req.params.id) || null;
+const getDistrictsByProvinceId = async (provinceId) => {
+    let disctricts = [];
     const config = {
         data: JSON.stringify({
-            province_id,
+            province_id: provinceId,
         }),
     };
     await GHN_Request.get('/master-data/district', config)
         .then((response) => {
-            res.json({ message: 'Success', data: { districts: response.data.data } });
+            disctricts = response.data.data;
         })
         .catch((error) => {
-            res.status(error.response.data.code || 500);
             throw new InternalServerError(error.response.data.message || error.message || '');
         });
+    return disctricts;
 };
-const getWard = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const district_id = Number(req.params.id) || null;
 
+const getWardsByDistrictId = async (districtId) => {
+    let wards = [];
     const config = {
         data: JSON.stringify({
-            district_id,
+            district_id: districtId,
         }),
     };
     await GHN_Request.get('/master-data/ward', config)
         .then((response) => {
-            res.json({ message: 'Success', data: { wards: response.data.data } });
+            wards = response.data.data;
         })
         .catch((error) => {
-            res.status(error.response.data.code || 500);
             throw new InternalServerError(error.response.data.message || error.message || '');
         });
+    return wards;
 };
-const getProvince = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
 
+const getProvince = async () => {
+    let provinces = [];
     await GHN_Request.get('/master-data/province')
         .then((response) => {
-            res.json({ message: 'Success', data: { provinces: response.data.data } });
+            provinces = response.data.data;
         })
         .catch((error) => {
-            res.status(error.response.data.code || 500);
             throw new InternalServerError(error.response.data.message || error.message || '');
         });
+    return provinces;
 };
+
 const calculateFee = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
@@ -436,8 +420,8 @@ const updateStatus = async (req, res) => {
 };
 const DeliveryService = {
     getDeliveries,
-    getDistrict,
-    getWard,
+    getDistrictsByProvinceId,
+    getWardsByDistrictId,
     getProvince,
     calculateFee,
     estimatedDeliveryTime,
