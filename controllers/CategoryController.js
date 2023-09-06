@@ -7,7 +7,13 @@ import { multerUpload } from '../utils/multer.js';
 
 const CategoryController = express.Router();
 
-CategoryController.get('/get-category-tree', asyncHandler(CategoryService.getCategoryTree));
+CategoryController.get(
+    '/get-category-tree',
+    asyncHandler(async (req, res) => {
+        res.json(await CategoryService.getCategoryTree());
+    }),
+);
+
 CategoryController.get(
     '/:id',
     validate.getCategoryById,

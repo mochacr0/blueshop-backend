@@ -1,11 +1,9 @@
+import { validationResult } from 'express-validator';
 import mongoose from 'mongoose';
-import * as fs from 'fs';
+import slug from 'slug';
 import Category from '../models/category.model.js';
 import Product from '../models/product.model.js';
-import { check, validationResult } from 'express-validator';
-import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
-import { ObjectId } from 'mongodb';
-import slug from 'slug';
+import { cloudinaryRemove, cloudinaryUpload } from '../utils/cloudinary.js';
 import {
     InternalServerError,
     InvalidDataError,
@@ -23,9 +21,8 @@ const getCategories = async (req, res) => {
     return res.json({ message: 'Success', data: { categories } });
 };
 
-const getCategoryTree = async (req, res) => {
-    const categories = await Category.find({ level: 1 }).populate('children').sort({ _id: -1 }).lean();
-    return res.json({ message: 'Success', data: { categories } });
+const getCategoryTree = async () => {
+    return await Category.find({ level: 1 }).populate('children').sort({ _id: -1 }).lean();
 };
 
 const getCategoryById = async (req, res) => {
@@ -38,12 +35,6 @@ const getCategoryById = async (req, res) => {
     return res.json({ message: 'Success', data: { category: category } });
 };
 const createCategory = async (req, res, next) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
     const { name, level, parent, description } = req.body;
     const children = req.body.children ? JSON.parse(req.body.children) : [];
     const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : '';
