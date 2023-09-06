@@ -31,17 +31,14 @@ const getCategoryById = async (categoryId) => {
     return category;
 };
 
-const createCategory = async (req, res, next) => {
-    const { name, level, parent, description } = req.body;
-    const children = req.body.children ? JSON.parse(req.body.children) : [];
-    const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : '';
-    const categoryExists = await Category.exists({ name: name.trim() });
+const createCategory = async (request) => {
+    const categoryExists = await Category.exists({ name: request.name.trim() });
     if (categoryExists) {
         throw new InvalidDataError('Danh mục đã tồn tại');
     }
 
     //generate slug
-    let generatedSlug = slug(name);
+    let generatedSlug = slug(request.name);
     const existSlug = await Category.exists({ slug: generatedSlug });
     if (existSlug) {
         generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
@@ -53,87 +50,77 @@ const createCategory = async (req, res, next) => {
         readConcern: { level: 'local' },
         writeConcern: { w: 'majority' },
     };
-    try {
-        await session.withTransaction(async () => {
-            const category = new Category({
-                name: name.trim(),
-                slug: generatedSlug,
-                level,
-                description: description || '',
-            });
+    let newCategory;
+    await session.withTransaction(async () => {
+        const category = new Category({
+            name: request.name.trim(),
+            slug: generatedSlug,
+            level: request.level,
+            description: request.description || '',
+        });
 
-            let parentCategory;
-            if (category.level > 1) {
-                if (!parent || parent.trim() === '') {
-                    await session.abortTransaction();
-                    throw new InvalidDataError('Nếu danh mục có cấp độ lớn hơn 1 thì phải chọn danh mục mẹ');
-                }
-
-                parentCategory = await Category.findOne({ _id: parent });
-                if (!parentCategory) {
-                    await session.abortTransaction();
-                    throw new UnprocessableContentError('Danh mục mẹ không tồn tại');
-                }
-                if (parentCategory.level >= category.level) {
-                    await session.abortTransaction();
-                    throw new InvalidDataError('Danh mục mẹ phải có cấp độ nhỏ hơn cấp độ danh mục muốn tạo');
-                }
-                category.parent = parentCategory._id;
-                parentCategory.children.push(category._id);
-            } else {
-                category.parent = category._id;
+        let parentCategory;
+        if (category.level > 1) {
+            if (!request.parent || request.parent.trim() === '') {
+                throw new InvalidDataError('Nếu danh mục có cấp độ lớn hơn 1 thì phải chọn danh mục mẹ');
             }
 
-            if (children && children.length > 0) {
-                let childrenCategory = [];
-                await Promise.all(
-                    children.map(async (item) => {
-                        const childrenCategoryExists = await Category.exists({ name: item.name.trim() });
-                        if (childrenCategoryExists) {
-                            await session.abortTransaction();
-                            throw new InvalidDataError('Danh mục đã tồn tại');
-                        }
-                        //generate slug
-                        let generatedSlug = slug(item.name);
-                        const existSlug = await Category.exists({ slug: generatedSlug });
-                        if (existSlug) {
-                            generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
-                        }
-                        const newChildrenCategory = new Category({
-                            name: item.name.trim(),
-                            slug: generatedSlug,
-                            parent: category._id,
-                            level: Number(level) + 1,
-                            description: item.description || '',
-                        });
-                        await newChildrenCategory.save({ session });
-                        childrenCategory.push(newChildrenCategory._id);
-                    }),
-                );
-                category.children = childrenCategory;
+            parentCategory = await Category.findOne({ _id: request.parent });
+            if (!parentCategory) {
+                throw new UnprocessableContentError('Danh mục mẹ không tồn tại');
             }
-            let imageUrl = '';
-            if (imageFile && imageFile.trim() !== '') {
-                const uploadImage = await cloudinaryUpload(imageFile, 'FashionShop/categories');
-                if (!uploadImage) {
-                    await session.abortTransaction();
-                    throw new InternalServerError('Xảy ra lỗi trong quá trình đăng tải hình ảnh danh mục');
-                }
-                imageUrl = uploadImage.secure_url;
-                category.image = imageUrl;
+            if (parentCategory.level >= category.level) {
+                throw new InvalidDataError('Danh mục mẹ phải có cấp độ nhỏ hơn cấp độ danh mục muốn tạo');
             }
+            category.parent = parentCategory._id;
+            parentCategory.children.push(category._id);
+        } else {
+            category.parent = category._id;
+        }
 
-            const newCategory = await (await category.save({ session })).populate('children');
-            if (parentCategory) {
-                await parentCategory.save({ session });
+        if (request.children && request.children.length > 0) {
+            let childrenCategory = [];
+            await Promise.all(
+                request.children.map(async (item) => {
+                    const childrenCategoryExists = await Category.exists({ name: item.name.trim() });
+                    if (childrenCategoryExists) {
+                        throw new InvalidDataError('Danh mục đã tồn tại');
+                    }
+                    //generate slug
+                    let generatedSlug = slug(item.name);
+                    const existSlug = await Category.exists({ slug: generatedSlug });
+                    if (existSlug) {
+                        generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
+                    }
+                    const newChildrenCategory = new Category({
+                        name: item.name.trim(),
+                        slug: generatedSlug,
+                        parent: category._id,
+                        level: Number(request.level) + 1,
+                        description: item.description || '',
+                    });
+                    await newChildrenCategory.save({ session });
+                    childrenCategory.push(newChildrenCategory._id);
+                }),
+            );
+            category.children = childrenCategory;
+        }
+        let imageUrl = '';
+        if (request.imageFile && request.imageFile.trim() !== '') {
+            const uploadImage = await cloudinaryUpload(request.imageFile, 'FashionShop/categories');
+            if (!uploadImage) {
+                throw new InternalServerError('Xảy ra lỗi trong quá trình đăng tải hình ảnh danh mục');
             }
-            res.json({ message: 'Thêm danh mục thành công', data: { newCategory } });
-        }, transactionOptions);
-    } catch (error) {
-        next(error);
-    } finally {
-        session.endSession();
-    }
+            imageUrl = uploadImage.secure_url;
+            category.image = imageUrl;
+        }
+        newCategory = await (await category.save({ session })).populate('children');
+        if (parentCategory) {
+            await parentCategory.save({ session });
+        }
+    }, transactionOptions);
+    session.endSession();
+    return newCategory;
 };
 
 const updateCategory = async (req, res, next) => {
@@ -265,7 +252,7 @@ const deleteCategory = async (req, res) => {
             }
         }
     }
-    if (!category.image && category.image.length > 0) {
+    if (category.image && category.image.length > 0) {
         let url = category.image;
         const publicId = url.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'));
         await cloudinaryRemove('FashionShop/categories/' + publicId);

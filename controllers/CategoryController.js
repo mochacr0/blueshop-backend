@@ -5,6 +5,7 @@ import CategoryService from '../services/CategoryService.js';
 import validate from '../middleware/validate.middleware.js';
 import { multerUpload } from '../utils/multer.js';
 import Category from '../models/category.model.js';
+import validateRequest from '../utils/validateRequest.js';
 
 const CategoryController = express.Router();
 
@@ -40,8 +41,20 @@ CategoryController.post(
     validate.createCategory,
     protect,
     auth('staff', 'admin'),
-    asyncHandler(CategoryService.createCategory),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const createCategoryRequest = {
+            name: req.body.name,
+            level: req.body.level,
+            parent: req.body.parent,
+            description: req.body.description,
+            children: req.body.children ? JSON.parse(req.body.children) : [],
+            imageFile: req.body.imageFile ? JSON.parse(req.body.imageFile) : '',
+        };
+        res.json(await CategoryService.createCategory(createCategoryRequest));
+    }),
 );
+
 CategoryController.put(
     '/:id',
     multerUpload.single('imageFile'),
