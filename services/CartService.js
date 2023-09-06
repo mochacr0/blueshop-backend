@@ -54,20 +54,12 @@ const addToCart = async (request, currentUser) => {
     return savedCart.cartItems;
 };
 
-const updateCartItem = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const { variantId } = req.body;
-    const quantity = parseInt(req.body.quantity);
-    if (!quantity) {
+const updateCartItem = async (request, currentUser) => {
+    if (!request.quantity) {
         throw new InvalidDataError('Số lượng không hợp lệ');
     }
-    const findCart = Cart.findOne({ user: req.user._id });
-    const findVariant = Variant.findOne({ _id: variantId }).lean();
+    const findCart = Cart.findOne({ user: currentUser._id });
+    const findVariant = Variant.findOne({ _id: request.variantId }).lean();
     const [cart, variant] = await Promise.all([findCart, findVariant]);
     if (!cart) {
         throw new UnprocessableContentError('Giỏ hàng không tồn tại');
@@ -75,14 +67,16 @@ const updateCartItem = async (req, res) => {
     if (!variant) {
         throw new UnprocessableContentError('Sản phẩm không tồn tại');
     }
-    if (quantity > variant.quantity) {
+    if (request.quantity > variant.quantity) {
         throw new InvalidDataError('Số lượng mặt hàng thêm vào giỏ đã vượt số lượng mặt hàng có trong kho');
     }
-    const updatedItemIndex = cart.cartItems.findIndex((item) => item.variant.toString() == variantId.toString());
+    const updatedItemIndex = cart.cartItems.findIndex(
+        (item) => item.variant.toString() == request.variantId.toString(),
+    );
     if (updatedItemIndex == -1) {
         throw new InvalidDataError('Sản phẩm không nằm trong giỏ hàng của bạn');
     }
-    cart.cartItems[updatedItemIndex].quantity = quantity;
+    cart.cartItems[updatedItemIndex].quantity = request.quantity;
     let message = '';
     if (cart.cartItems[updatedItemIndex].quantity <= 0) {
         cart.cartItems.splice(updatedItemIndex, 1);
@@ -92,7 +86,7 @@ const updateCartItem = async (req, res) => {
         message = 'Cập nhật sản phẩm trong giỏ hàng thành công';
     }
     await cart.save();
-    res.json({ message });
+    return message;
 };
 
 const removeCartItems = async (variantIds, currentUser) => {

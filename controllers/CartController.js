@@ -44,7 +44,14 @@ CartController.patch(
     validate.updateCartItem,
     protect,
     auth('user'),
-    asyncHandler(CartService.updateCartItem),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const updateCartItemRequest = {
+            variantId: req.body.variantId,
+            quantity: parseInt(req.body.quantity),
+        };
+        res.json(await CartService.updateCartItem(updateCartItemRequest, req.user));
+    }),
 );
 
 export default CartController;
