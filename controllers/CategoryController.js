@@ -19,8 +19,12 @@ CategoryController.get(
     validate.getCategoryById,
     protect,
     auth('staff', 'admin'),
-    asyncHandler(CategoryService.getCategoryById),
+    asyncHandler(async (req, res) => {
+        const categoryId = req.params.id || '';
+        res.json(await CategoryService.getCategoryById(categoryId));
+    }),
 );
+
 CategoryController.get('/', asyncHandler(CategoryService.getCategories));
 CategoryController.post(
     '/',

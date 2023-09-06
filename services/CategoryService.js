@@ -25,15 +25,14 @@ const getCategoryTree = async () => {
     return await Category.find({ level: 1 }).populate('children').sort({ _id: -1 }).lean();
 };
 
-const getCategoryById = async (req, res) => {
-    const categoryId = req.params.id || '';
-
+const getCategoryById = async (categoryId) => {
     const category = await Category.findOne({ _id: categoryId }).populate('children', 'parent').lean();
     if (!category) {
         throw new ItemNotFoundError('Danh mục không tồn tại');
     }
-    return res.json({ message: 'Success', data: { category: category } });
+    return category;
 };
+
 const createCategory = async (req, res, next) => {
     const { name, level, parent, description } = req.body;
     const children = req.body.children ? JSON.parse(req.body.children) : [];
