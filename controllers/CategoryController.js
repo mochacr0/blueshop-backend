@@ -1,10 +1,9 @@
 import express from 'express';
 import asyncHandler from 'express-async-handler';
-import { protect, auth } from '../middleware/auth.middleware.js';
-import CategoryService from '../services/CategoryService.js';
+import { auth, protect } from '../middleware/auth.middleware.js';
 import validate from '../middleware/validate.middleware.js';
+import CategoryService from '../services/CategoryService.js';
 import { multerUpload } from '../utils/multer.js';
-import Category from '../models/category.model.js';
 import validateRequest from '../utils/validateRequest.js';
 
 const CategoryController = express.Router();

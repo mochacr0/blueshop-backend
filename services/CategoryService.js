@@ -1,4 +1,3 @@
-import { validationResult } from 'express-validator';
 import mongoose from 'mongoose';
 import slug from 'slug';
 import Category from '../models/category.model.js';
