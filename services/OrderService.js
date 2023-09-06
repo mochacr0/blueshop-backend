@@ -174,26 +174,15 @@ const calculateFee = async (shippingAddress, size, price) => {
             insurance_value: price,
         }),
     };
-    await GHN_Request.get('v2/shipping-order/fee', config)
-        .then((response) => {
-            // deliveryFee = response.data.data.total;
-            return response.data.data.total;
-        })
-        .catch((error) => {
-            throw new InternalServerError(error.response.data.message || error.message || '');
-            // deliveryFee.error = 1;
-            // deliveryFee.status = error.response.data.code || 500;
-            // deliveryFee.message = error.response.data.message || error.message || '';
-        });
+    try {
+        const httpResponse = await GHN_Request.get('v2/shipping-order/fee', config);
+        return httpResponse.data.data.total;
+    } catch (error) {
+        throw new InternalServerError(error.response.data.message || error.message || '');
+    }
 };
 
 const estimatedDeliveryTime = async (shippingAddress) => {
-    // const result = {
-    //     leadTime: null,
-    //     error: 0,
-    //     status: 200,
-    //     message: '',
-    // };
     const config = {
         data: JSON.stringify({
             shop_id: Number(process.env.GHN_SHOP_ID),
@@ -202,16 +191,12 @@ const estimatedDeliveryTime = async (shippingAddress) => {
             to_ward_code: String(shippingAddress.to_ward_code),
         }),
     };
-    await GHN_Request.get('v2/shipping-order/leadtime', config)
-        .then((response) => {
-            return response.data.data.leadtime;
-        })
-        .catch((error) => {
-            throw new InternalServerError(error.response.data.message || error.message || '');
-            // result.error = 1;
-            // result.status = error.response.data.code || 500;
-            // result.message = error.response.data.message || error.message || '';
-        });
+    try {
+        const httpResponse = await GHN_Request.get('v2/shipping-order/leadtime', config);
+        return httpResponse.data.data.leadtime;
+    } catch (error) {
+        throw new InternalServerError(error.response.data.message || error.message || '');
+    }
 };
 
 const getAddressName = async (shippingAddress) => {
@@ -221,68 +206,55 @@ const getAddressName = async (shippingAddress) => {
         districtName: '',
         wardName: '',
     };
-    // const result = {
-    //     error: 0,
-    //     status: 200,
-    //     message: '',
-    //     address: {
-    //         ...shippingAddress,
-    //         provinceName: '',
-    //         districtName: '',
-    //         wardName: '',
-    //     },
-    // };
+    let provinces = [];
     // Get province
-    await GHN_Request.get('/master-data/province')
-        .then((response) => {
-            const provinces = response.data.data;
-            provinces.map((item) => {
-                if (item.ProvinceID == shippingAddress.to_province_id) {
-                    address.provinceName = item.ProvinceName;
-                }
-            });
-        })
-        .catch((error) => {
-            // result.status = error.response.data.code || 500;
-            throw new InternalServerError(error.response.data.message || error.message || '');
-        });
+    try {
+        const httpResponse = await GHN_Request.get('/master-data/province');
+        provinces = httpResponse.data.data;
+    } catch (error) {
+        throw new InternalServerError(error.response.data.message || error.message || '');
+    }
+    provinces.map((item) => {
+        if (item.ProvinceID == shippingAddress.to_province_id) {
+            address.provinceName = item.ProvinceName;
+        }
+    });
 
     //Get district
-    await GHN_Request.get('/master-data/district', {
-        data: JSON.stringify({
-            province_id: shippingAddress.to_province_id,
-        }),
-    })
-        .then((response) => {
-            const districts = response.data.data;
-            districts.map((item) => {
-                if (item.DistrictID == shippingAddress.to_district_id) {
-                    address.districtName = item.DistrictName;
-                }
-            });
-        })
-        .catch((error) => {
-            // result.status = error.response.data.code || 500;
-            throw new InternalServerError(error.response.data.message || error.message || '');
+    let districts = [];
+    try {
+        const httpResponse = await GHN_Request.get('/master-data/district', {
+            data: JSON.stringify({
+                province_id: shippingAddress.to_province_id,
+            }),
         });
+        districts = httpResponse.data.data;
+    } catch (error) {
+        throw new InternalServerError(error.response.data.message || error.message || '');
+    }
+    districts.map((item) => {
+        if (item.DistrictID == shippingAddress.to_district_id) {
+            address.districtName = item.DistrictName;
+        }
+    });
+
     //Get ward
-    await GHN_Request.get('/master-data/ward', {
-        data: JSON.stringify({
-            district_id: shippingAddress.to_district_id,
-        }),
-    })
-        .then((response) => {
-            const wards = response.data.data;
-            wards.map((item) => {
-                if (item.WardCode == shippingAddress.to_ward_code) {
-                    address.wardName = item.WardName;
-                }
-            });
-        })
-        .catch((error) => {
-            // result.status = error.response.data.code || 500;
-            throw new InternalServerError(error.response.data.message || error.message || '');
+    let wards = [];
+    try {
+        const httpResponse = await GHN_Request.get('/master-data/ward', {
+            data: JSON.stringify({
+                district_id: shippingAddress.to_district_id,
+            }),
         });
+        wards = httpResponse.data.data;
+    } catch (error) {
+        throw new InternalServerError(error.response.data.message || error.message || '');
+    }
+    wards.map((item) => {
+        if (item.WardCode == shippingAddress.to_ward_code) {
+            address.wardName = item.WardName;
+        }
+    });
     if (!address.provinceName) {
         throw new InvalidDataError('Tỉnh/Thành phố không hợp lệ');
     }
@@ -326,6 +298,7 @@ const createOrder = async (req, res, next) => {
     const calculateLeadTime = estimatedDeliveryTime(shippingAddress);
     const getAddress = getAddressName(shippingAddress);
     const [deliveryFee, leadTime, address] = await Promise.all([calculateDeliveryFee, calculateLeadTime, getAddress]);
+    console.log('delivery fee', deliveryFee);
     // if (deliveryFee.error) {
     //     res.status(deliveryFee.status);
     //     throw new Error(deliveryFee.message);
@@ -478,8 +451,11 @@ const createOrder = async (req, res, next) => {
                 orderInfor.totalDiscount = discount;
             }
 
+            console.log(orderInfor.totalProductPrice);
+            console.log(deliveryFee);
+            console.log(orderInfor.totalDiscount);
             const totalPayment = orderInfor.totalProductPrice + deliveryFee - orderInfor.totalDiscount;
-
+            console.log(totalPayment);
             if (totalPayment >= 0) {
                 orderInfor.totalPayment = totalPayment;
             } else {
@@ -560,6 +536,7 @@ const createOrder = async (req, res, next) => {
                     })
                     .catch(async (error) => {
                         await session.abortTransaction();
+                        console.log(error.response);
                         throw new InvalidDataError(error.response?.message || error.message);
                     });
             } else if (newPaymentInformation.paymentMethod != PAYMENT_WITH_CASH) {

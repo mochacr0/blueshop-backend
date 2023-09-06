@@ -75,37 +75,19 @@ const getProvince = async () => {
     return provinces;
 };
 
-const calculateFee = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const {
-        to_district_id,
-        to_ward_code,
-        height = null,
-        length = null,
-        weight,
-        width = null,
-        insurance_value = null,
-        coupon = null,
-    } = req.body;
-
+const calculateFee = async (request) => {
     const deliveryServices = [];
     const services = await GHN_Request.get('/v2/shipping-order/available-services', {
         data: JSON.stringify({
             shop_id: Number(process.env.GHN_SHOP_ID),
             from_district: 1454,
-            to_district: to_district_id,
+            to_district: request.to_district_id,
         }),
     })
         .then((response) => {
             return response.data.data;
         })
         .catch((error) => {
-            res.status(error.response.data.code || 500);
             throw new InternalServerError(error.response.data.message || error.message || '');
         });
 
@@ -115,36 +97,35 @@ const calculateFee = async (req, res) => {
             data: JSON.stringify({
                 shop_id: Number(process.env.GHN_SHOP_ID),
                 service_id: serviceItem.service_id,
-                to_district_id,
-                to_ward_code,
-                height,
-                length,
-                weight,
-                width,
-                insurance_value,
-                coupon,
+                to_district_id: request.to_district_id,
+                to_ward_code: request.to_ward_code,
+                height: request.height,
+                length: request.length,
+                weight: request.weight,
+                width: request.width,
+                insurance_value: request.insurance_value,
+                coupon: request.coupon,
             }),
         })
             .then((response) => {
                 return response.data.data;
             })
             .catch((error) => {
-                // throw new Error(error.response.data.message || error.message || '');
+                console.error(error.response.data.message || error.message || '');
             });
 
         const leadTimeRequest = GHN_Request.get('v2/shipping-order/leadtime', {
             data: JSON.stringify({
                 shop_id: Number(process.env.GHN_SHOP_ID),
                 service_id: serviceItem.service_id,
-                to_district_id,
-                to_ward_code,
+                to_district_id: request.to_district_id,
+                to_ward_code: request.to_ward_code,
             }),
         })
             .then((response) => {
                 return response.data.data;
             })
             .catch((error) => {
-                res.status(error.response.data.code || 500);
                 throw new InternalServerError(error.response.data.message || error.message || '');
             });
         const [feeResult, leadTimeResult] = await Promise.all([calculateFeeRequest, leadTimeRequest]);
@@ -158,7 +139,7 @@ const calculateFee = async (req, res) => {
     if (deliveryServices.length == 0) {
         throw new UnavailableServiceError('There are no available services');
     }
-    res.json({ message: 'Success', data: { deliveryServices } });
+    return deliveryServices;
 };
 
 const estimatedDeliveryTime = async (req, res) => {
