@@ -123,51 +123,41 @@ const createCategory = async (request) => {
     return newCategory;
 };
 
-const updateCategory = async (req, res, next) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const categoryId = req.params.id || null;
-
+const updateCategory = async (categoryId, request) => {
     //find category by id
     const currentCategory = await Category.findOne({ _id: categoryId });
     if (!currentCategory) {
         throw new ItemNotFoundError('Danh mục không tồn tại');
     }
 
-    const { name, description, level, image, parent, updatedVersion } = req.body;
-    const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : '';
     let newParentCat, currentParentCat;
-    if (currentCategory.updatedVersion != updatedVersion) {
+    if (currentCategory.updatedVersion != request.updatedVersion) {
         throw new InvalidDataError(
             'Danh mục vừa được cập nhật thông tin, vui lòng làm mới lại trang để lấy thông tin mới nhất',
         );
     }
     currentCategory.updatedVersion = Number(currentCategory.updatedVersion) + 1;
-    if (currentCategory.name != name.trim()) {
+    if (currentCategory.name != request.name.trim()) {
         //check the existence of the category
-        const categoryExists = await Category.exists({ name: name.trim() });
+        const categoryExists = await Category.exists({ name: request.name.trim() });
         if (categoryExists) {
             throw new InvalidDataError('Danh mục đã tồn tại');
         }
-        currentCategory.name = name.trim();
+        currentCategory.name = request.name.trim();
         //generate slug
-        let generatedSlug = slug(name);
+        let generatedSlug = slug(request.name);
         const existSlug = await Category.exists({ slug: generatedSlug });
         if (existSlug) {
             generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
         }
         currentCategory.slug = generatedSlug;
     }
-    currentCategory.description = description;
-    if (currentCategory.parent != parent || currentCategory.level != level) {
-        currentCategory.level = level || currentCategory.level;
+    currentCategory.description = request.description;
+    if (currentCategory.parent != request.parent || currentCategory.level != request.level) {
+        currentCategory.level = request.level || currentCategory.level;
 
         // check parent category
-        newParentCat = await Category.findOne({ _id: parent });
+        newParentCat = await Category.findOne({ _id: request.parent });
         if (!newParentCat) {
             throw new UnprocessableContentError('Danh mục mẹ không tồn tại');
         }
@@ -179,7 +169,7 @@ const updateCategory = async (req, res, next) => {
             throw new InvalidDataError('Danh mục mẹ phải có cấp độ nhỏ hơn cấp độ danh mục muốn cập nhật');
         }
 
-        if (currentCategory.parent !== parent) {
+        if (currentCategory.parent !== request.parent) {
             //delete children category in parent category
             currentParentCat = await Category.findById(currentCategory.parent);
             if (currentParentCat) {
@@ -196,14 +186,14 @@ const updateCategory = async (req, res, next) => {
     }
 
     let imageUrl = '';
-    if (imageFile && imageFile.trim() !== '' && currentCategory.image != imageFile) {
-        const uploadImage = await cloudinaryUpload(imageFile, 'FashionShop/categories');
+    if (request.imageFile && request.imageFile.trim() !== '' && currentCategory.image != request.imageFile) {
+        const uploadImage = await cloudinaryUpload(request.imageFile, 'FashionShop/categories');
         if (!uploadImage) {
             throw new InternalServerError('Xảy ra lỗi khi upload ảnh');
         }
         imageUrl = uploadImage.secure_url;
-    } else if (image && image.trim() !== '' && currentCategory.image != image) {
-        const uploadImage = await cloudinaryUpload(image, 'FashionShop/categories');
+    } else if (request.image && request.image.trim() !== '' && currentCategory.image != request.image) {
+        const uploadImage = await cloudinaryUpload(request.image, 'FashionShop/categories');
         if (!uploadImage) {
             throw new InternalServerError('Xảy ra lỗi khi upload ảnh');
         }
@@ -223,7 +213,7 @@ const updateCategory = async (req, res, next) => {
     if (currentParentCat) {
         await currentParentCat.save();
     }
-    res.json({ message: 'Cập nhật danh mục thành công', data: { updateCategory } });
+    return updateCategory;
 };
 
 const deleteCategory = async (req, res) => {

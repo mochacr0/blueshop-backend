@@ -61,8 +61,22 @@ CategoryController.put(
     validate.updateCategory,
     protect,
     auth('staff', 'admin'),
-    asyncHandler(CategoryService.updateCategory),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const categoryId = req.params.id || null;
+        const updateCategoryRequest = {
+            name: req.body.name,
+            description: req.body.description,
+            level: req.body.level,
+            image: req.body.image,
+            parent: req.body.parent,
+            updatedVersion: req.body.updatedVersion,
+            imageFile: req.body.imageFile ? JSON.parse(req.body.imageFile) : '',
+        };
+        res.json(await CategoryService.updateCategory(categoryId, updateCategoryRequest));
+    }),
 );
+
 CategoryController.delete('/:id', protect, auth('staff', 'admin'), asyncHandler(CategoryService.deleteCategory));
 
 export default CategoryController;
