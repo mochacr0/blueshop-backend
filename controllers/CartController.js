@@ -34,7 +34,10 @@ CartController.patch(
     validate.removeCartItems,
     protect,
     auth('user'),
-    asyncHandler(CartService.removeCartItems),
+    asyncHandler(async (req, res) => {
+        const { variantIds } = req.body;
+        validateRequest(variantIds, req.user);
+    }),
 );
 CartController.patch(
     '/update',

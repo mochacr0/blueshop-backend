@@ -95,20 +95,15 @@ const updateCartItem = async (req, res) => {
     res.json({ message });
 };
 
-const removeCartItems = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
+const removeCartItems = async (variantIds, currentUser) => {
+    if (variantIds && variantIds.length > 0) {
+        const cart = await Cart.exists({ user: currentUser._id });
+        if (!cart) {
+            throw new UnprocessableContentError('Giỏ hàng không tồn tại');
+        }
+        await Cart.updateMany({ _id: cart._id }, { $pull: { cartItems: { variant: { $in: variantIds } } } });
     }
-    const variantIds = req.body.variantIds;
-    const cart = await Cart.exists({ user: req.user._id });
-    if (!cart) {
-        throw new UnprocessableContentError('Giỏ hàng không tồn tại');
-    }
-    await Cart.updateMany({ _id: cart._id }, { $pull: { cartItems: { variant: { $in: variantIds } } } });
-    res.json({ success: true, message: 'Sản phẩm đã được xóa khỏi giỏ hàng' });
+    return 'Sản phẩm đã được xóa khỏi giỏ hàng';
 };
 
 const CartService = { getCart, addToCart, updateCartItem, removeCartItems };
