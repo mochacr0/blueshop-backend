@@ -11,14 +11,12 @@ import {
     UnprocessableContentError,
 } from '../utils/errors.js';
 
-const getCategories = async (req, res) => {
-    const level = req.query.level;
+const getCategories = async (level) => {
     const filter = {};
     if (level) {
         filter.level = level;
     }
-    const categories = await Category.find(filter).sort({ _id: -1 }).lean();
-    return res.json({ message: 'Success', data: { categories } });
+    return await Category.find(filter).sort({ _id: -1 }).lean();
 };
 
 const getCategoryTree = async () => {

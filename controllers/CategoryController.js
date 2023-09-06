@@ -4,6 +4,7 @@ import { protect, auth } from '../middleware/auth.middleware.js';
 import CategoryService from '../services/CategoryService.js';
 import validate from '../middleware/validate.middleware.js';
 import { multerUpload } from '../utils/multer.js';
+import Category from '../models/category.model.js';
 
 const CategoryController = express.Router();
 
@@ -25,7 +26,14 @@ CategoryController.get(
     }),
 );
 
-CategoryController.get('/', asyncHandler(CategoryService.getCategories));
+CategoryController.get(
+    '/',
+    asyncHandler(async (req, res) => {
+        const { level } = req.query;
+        res.json(await CategoryService.getCategories(level));
+    }),
+);
+
 CategoryController.post(
     '/',
     multerUpload.single('imageFile'),
