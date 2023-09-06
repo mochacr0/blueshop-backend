@@ -216,9 +216,7 @@ const updateCategory = async (categoryId, request) => {
     return updateCategory;
 };
 
-const deleteCategory = async (req, res) => {
-    const categoryId = req.params.id || null;
-
+const deleteCategory = async (categoryId) => {
     const category = await Category.findOne({ _id: categoryId });
     if (!category) {
         throw new ItemNotFoundError('Danh mục không tồn tại');
@@ -251,7 +249,7 @@ const deleteCategory = async (req, res) => {
     if (parentCat) {
         await parentCat.save();
     }
-    res.json({ message: 'Xóa danh mục thành công' });
+    return 'Xóa danh mục thành công';
 };
 
 const CategoryService = {

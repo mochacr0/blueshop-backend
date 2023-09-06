@@ -77,6 +77,14 @@ CategoryController.put(
     }),
 );
 
-CategoryController.delete('/:id', protect, auth('staff', 'admin'), asyncHandler(CategoryService.deleteCategory));
+CategoryController.delete(
+    '/:id',
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(async (req, res) => {
+        const categoryId = req.params.id || null;
+        res.json(await CategoryService.deleteCategory(categoryId));
+    }),
+);
 
 export default CategoryController;
