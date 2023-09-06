@@ -264,15 +264,7 @@ const preview = async (req, res) => {
 
     res.json({ data: { deliveryInfo } });
 };
-const printOrder = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const orderId = req.params.id || '';
-    const pageSize = req.params.pageSize || 'A5';
+const printOrder = async (orderId, pageSize) => {
     if (!orderId || orderId.trim() == '') {
         throw new UnprocessableContentError('Đơn hàng không tồn tại');
     }
@@ -291,21 +283,15 @@ const printOrder = async (req, res) => {
             order_codes: [order.delivery.deliveryCode],
         }),
     };
-    await GHN_Request.get('v2/a5/gen-token', config)
-        .then((response) => {
-            res.json({
-                message: 'Success',
-                data: {
-                    url: `${process.env.GHN_REQUEST_URL}/a5/public-api/print${pageSize}?token=${response.data.data.token}`,
-                },
-            });
-        })
-        .catch((error) => {
-            res.status(error.response.data.code || 500);
-            throw new InternalServerError(
-                error.response.data.message.code_message_value || error.response.data.message || error.message || '',
-            );
-        });
+    try {
+        const httpResponse = await GHN_Request.get('v2/a5/gen-token', config);
+        const deliveryLabelUrl = `${process.env.GHN_REQUEST_URL}/a5/public-api/print${pageSize}?token=${httpResponse.data.data.token}`;
+        return deliveryLabelUrl;
+    } catch (error) {
+        throw new InternalServerError(
+            error.response.data.message.code_message_value || error.response.data.message || error.message || '',
+        );
+    }
 };
 const updateCOD = async (req, res) => {
     // Validate the request data using express-validator

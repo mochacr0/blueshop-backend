@@ -31,11 +31,16 @@ DeliveryController.get(
 );
 
 DeliveryController.get(
-    '/shipping-order/:id/print/:pageSize',
+    '/shipping-order/:id/print',
     protect,
     auth('staff', 'admin'),
-    asyncHandler(DeliveryService.printOrder),
+    asyncHandler(async (req, res) => {
+        const orderId = req.params.id || '';
+        const pageSize = req.query.pageSize || 'A5';
+        res.json(await DeliveryService.printOrder(orderId, pageSize));
+    }),
 );
+
 DeliveryController.get('/', protect, auth('staff', 'admin'), asyncHandler(DeliveryService.getDeliveries));
 DeliveryController.post('/shipping-order/fee', validate.calculateFee, asyncHandler(DeliveryService.calculateFee));
 DeliveryController.post('/shipping-order/update-status', asyncHandler(DeliveryService.updateStatus));
