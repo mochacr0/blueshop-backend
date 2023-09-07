@@ -70,8 +70,5 @@ BannerController.delete(
         res.json(await BannerService.deleteBanner(req.params.id));
     }),
 );
-// bannerRouter.patch('/:id/increaseIndex', protect, auth('staff', 'admin'), asyncHandler(bannerController.increaseIndex));
-
-// bannerRouter.patch('/:id/decreaseIndex', protect, auth('staff', 'admin'), asyncHandler(bannerController.decreaseIndex));
 
 export default BannerController;

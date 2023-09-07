@@ -15,6 +15,7 @@ CartController.get(
         res.json(await CartService.getCart(req.user));
     }),
 );
+
 CartController.post(
     '/add',
     validate.addProductToCart,
@@ -29,16 +30,19 @@ CartController.post(
         res.json(await CartService.addToCart(addToCartRequest, req.user));
     }),
 );
+
 CartController.patch(
     '/remove',
     validate.removeCartItems,
     protect,
     auth('user'),
     asyncHandler(async (req, res) => {
+        validateRequest(req);
         const { variantIds } = req.body;
-        validateRequest(variantIds, req.user);
+        res.json(await CartService.removeCartItems(variantIds, req.user));
     }),
 );
+
 CartController.patch(
     '/update',
     validate.updateCartItem,

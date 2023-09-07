@@ -1,6 +1,5 @@
 import Cart from '../models/cart.model.js';
 import Variant from '../models/variant.model.js';
-import { validationResult } from 'express-validator';
 import { InvalidDataError, ItemNotFoundError, UnprocessableContentError } from '../utils/errors.js';
 
 const getCart = async (currentUser) => {
