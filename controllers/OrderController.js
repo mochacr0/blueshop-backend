@@ -3,6 +3,7 @@ import asyncHandler from 'express-async-handler';
 import { auth, protect } from '../middleware/auth.middleware.js';
 import OrderService from '../services/OrderService.js';
 import validate from '../middleware/validate.middleware.js';
+import { validateRequest } from '../utils/validateRequest.js';
 
 const OrderController = express.Router();
 
@@ -10,7 +11,16 @@ OrderController.get(
     '/ordered/:userId',
     validate.getOrdersByUserId,
     protect,
-    asyncHandler(OrderService.getOrdersByUserId),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const userId = req.params.userId;
+        const pageParameter = {
+            limit: Number(req.query.limit) || 2,
+            page: Number(req.query.page) || 0,
+            status: String(req.query.status) || null,
+        };
+        res.json(await OrderService.getOrdersByUserId(userId, pageParameter, req.user));
+    }),
 );
 OrderController.get('/:id/payment-status', protect, asyncHandler(OrderService.getOrderPaymentStatus));
 OrderController.post('/:id/refund', protect, asyncHandler(OrderService.refundTrans));

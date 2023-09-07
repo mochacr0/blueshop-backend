@@ -37,33 +37,29 @@ const TYPE_DISCOUNT_PERCENT = 2;
 
 const PAYMENT_DEFAULT_ORDER_INFO = 'Thanh toán đơn hàng tại BlueShop';
 
-const getOrdersByUserId = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    if (req.user.role !== 'staff' && req.user.role !== 'admin') {
-        if (req.user._id != req.params.userId) {
+const getOrdersByUserId = async (userId, pageParameter, currentUser) => {
+    if (currentUser.role !== 'staff' && currentUser.role !== 'admin') {
+        if (currentUser._id != userId) {
             throw new UnauthenticatedError('Bị cấm. Bạn không thể truy cập thông tin đơn hàng của người khác.');
         }
     }
-    const limit = Number(req.query.limit) || 20; //EDIT HERE
-    const page = Number(req.query.page) || 0;
-    const status = String(req.query.status) || null;
-    const orderFilter = { user: req.user._id };
-    if (status) {
-        orderFilter.status = status;
+    const orderFilter = { user: currentUser._id };
+    if (pageParameter.status) {
+        orderFilter.status = pageParameter.status;
     }
     const count = await Order.countDocuments({ ...orderFilter });
     const orders = await Order.find({ ...orderFilter })
         .populate(['delivery', 'paymentInformation'])
-        .limit(limit)
-        .skip(limit * page)
+        .limit(pageParameter.limit)
+        .skip(pageParameter.limit * pageParameter.page)
         .sort({ createdAt: 'desc' })
         .lean();
-    res.json({ data: { orders, page, pages: Math.ceil(count / limit), total: count } });
+    return {
+        orders: orders,
+        page: pageParameter.page,
+        pages: Math.ceil(count / pageParameter.limit),
+        total: count,
+    };
 };
 
 const getOrderById = async (req, res) => {
@@ -77,8 +73,8 @@ const getOrderById = async (req, res) => {
     if (!order) {
         throw new ItemNotFoundError('Đơn hàng không tồn tại');
     }
-    if (req.user.role !== 'staff' && req.user.role !== 'admin') {
-        if (req.user._id.toString() !== order.user.toString()) {
+    if (currentUser.role !== 'staff' && currentUser.role !== 'admin') {
+        if (currentUser._id.toString() !== order.user.toString()) {
             throw new ItemNotFoundError('Đơn hàng không tồn tại');
         }
     }
