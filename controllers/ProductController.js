@@ -6,14 +6,45 @@ import { multerUpload } from '../utils/multer.js';
 import validate from '../middleware/validate.middleware.js';
 
 const ProductController = express.Router();
-ProductController.get('/slug/:slug', asyncHandler(ProductService.getProductBySlug));
-ProductController.get('/search', asyncHandler(ProductService.getProductSearchResults));
-ProductController.get('/recommend', asyncHandler(ProductService.getProductRecommend));
+
+ProductController.get(
+    '/slug/:slug',
+    asyncHandler(async (req, res) => {
+        const slug = req.params.slug.toString().trim() || '';
+        res.json(await ProductService.getProductBySlug(slug));
+    }),
+);
+
+ProductController.get(
+    '/search',
+    asyncHandler(async (req, res) => {
+        const searchParamter = {
+            limit: Number(req.query.limit) || 12,
+            keyword: req.query.keyword,
+        };
+        res.json(await ProductService.getProductSearchResults(searchParamter));
+    }),
+);
+
+ProductController.get(
+    '/recommend',
+    asyncHandler(async (req, res) => {
+        const searchParamter = {
+            limit: parseInt(req.query.limit) > 0 ? parseInt(req.query.limit) : 12,
+            page: parseInt(req.query.page) >= 0 ? parseInt(req.query.page) : 0,
+            productId: req.query.id || '',
+        };
+        res.json(await ProductService.getProductRecommend(searchParamter));
+    }),
+);
+
 ProductController.get(
     '/all-products',
     protect,
     auth('staff', 'admin'),
-    asyncHandler(ProductService.getAllProductsByAdmin),
+    asyncHandler(async (req, res) => {
+        res.json(await ProductService.getAllProductsByAdmin());
+    }),
 );
 ProductController.get('/admin', protect, auth('staff', 'admin'), asyncHandler(ProductService.getProductsByAdmin));
 ProductController.get('/:id', validate.getProductById, asyncHandler(ProductService.getProductById));

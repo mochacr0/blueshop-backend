@@ -25,17 +25,17 @@ const getProducts = async (req, res) => {
     let page = parseInt(req.query.page) >= 0 ? parseInt(req.query.page) : 0;
     const sortBy = validateConstants(productQueryParams, 'sort', req.query.sortBy || 'default');
     let statusFilter = validateConstants(productQueryParams, 'status', 'default');
-    const keyword = req.query.keyword
+    const keywordFilter = req.query.keyword
         ? {
               $text: {
-                  $search: req.query.keyword,
-                  // $language: 'en',
+                  //enclosed keyword will be treated as a phrase ($and) instead of individual words ($or)
+                  $search: `\"${req.query.keyword}\"`,
                   $caseSensitive: false,
                   $diacriticSensitive: false,
               },
           }
         : {};
-    const sort = req.query.keyword ? { ...sortBy, score: { $meta: 'textScore' } } : { ...sortBy };
+    const sort = req.query.keyword ? { score: { $meta: 'textScore' }, ...sortBy } : { ...sortBy };
     // const keyword = req.query.keyword
     //     ? {
     //           $or: [
@@ -81,7 +81,7 @@ const getProducts = async (req, res) => {
     const categoryFilter = categoryIds.length > 0 ? { category: categoryIds } : {};
 
     const productFilter = {
-        ...keyword,
+        ...keywordFilter,
         ...categoryFilter,
         ...statusFilter,
         ...priceRangeFilter(minPrice, maxPrice),
@@ -194,20 +194,20 @@ const getProductsByAdmin = async (req, res) => {
         data: { products, page, pages: Math.ceil(count / limit), total: count },
     });
 };
-const getProductSearchResults = async (req, res) => {
-    const limit = Number(req.query.limit) || 12; //EDIT HERE
-    const keyword = req.query.keyword
+
+const getProductSearchResults = async (searchParamter) => {
+    searchParamter.keyword = searchParamter.keyword
         ? {
               $or: [
                   {
                       name: {
-                          $regex: req.query.keyword,
+                          $regex: searchParamter.keyword,
                           $options: 'i',
                       },
                   },
                   {
                       slug: {
-                          $regex: req.query.keyword,
+                          $regex: searchParamter.keyword,
                           $options: 'i',
                       },
                   },
@@ -215,21 +215,17 @@ const getProductSearchResults = async (req, res) => {
           }
         : {};
     const productFilter = {
-        ...keyword,
+        ...searchParamter.keyword,
     };
-    const keywords = await Product.find(productFilter).limit(limit).select('name').lean();
-    res.json({ message: 'Success', data: { keywords } });
+    return await Product.find(productFilter).limit(searchParamter.limit).select('name').lean();
 };
 
-const getProductRecommend = async (req, res) => {
-    const limit = parseInt(req.query.limit) > 0 ? parseInt(req.query.limit) : 12;
-    let page = parseInt(req.query.page) >= 0 ? parseInt(req.query.page) : 0;
+const getProductRecommend = async (searchParamter) => {
     const sortBy = validateConstants(productQueryParams, 'sort', 'default');
     let statusFilter = validateConstants(productQueryParams, 'status', 'default');
-    const productId = req.query.id || '';
     let category = null;
-    if (productId) {
-        const product = await Product.findOne({ _id: productId });
+    if (searchParamter.productId) {
+        const product = await Product.findOne({ _id: searchParamter.productId });
         if (product) {
             category = product.category;
         }
@@ -256,26 +252,22 @@ const getProductRecommend = async (req, res) => {
     };
 
     const count = await Product.countDocuments(productFilter);
+    let recommendResult = { products: [], page: 0, pages: 0, total: 0 };
     //Check if product match keyword
-    if (count == 0) {
-        res.json({
-            message: 'Success',
-            data: { products: [], page: 0, pages: 0, total: 0 },
-        });
+    if (count != 0) {
+        const products = await Product.find(productFilter)
+            .limit(searchParamter.limit)
+            .skip(searchParamter.limit * searchParamter.page)
+            .sort(sortBy)
+            .populate('category')
+            .populate('variants')
+            .lean();
+        recommendResult.products = products;
+        recommendResult.page = searchParamter.page;
+        recommendResult.pages = Math.ceil(count / searchParamter.limit);
+        recommendResult.total = count;
     }
-    //else
-    const products = await Product.find(productFilter)
-        .limit(limit)
-        .skip(limit * page)
-        .sort(sortBy)
-        .populate('category')
-        .populate('variants')
-        .lean();
-
-    res.json({
-        message: 'Success',
-        data: { products, page, pages: Math.ceil(count / limit), total: count },
-    });
+    return recommendResult;
 };
 
 // const getProductRecommend = async (req, res) => {
@@ -354,13 +346,12 @@ const getAllProductsByAdmin = async (req, res) => {
     res.json({ message: 'Success', data: { products } });
 };
 
-const getProductBySlug = async (req, res) => {
-    const slug = req.params.slug.toString().trim() || '';
+const getProductBySlug = async (slug) => {
     const product = await Product.findOne({ slug: slug }).populate(['variants', 'category']).lean();
     if (!product) {
         throw new ItemNotFoundError('Sản phẩm không tồn tại');
     }
-    res.json({ message: 'Success', data: { product } });
+    return product;
 };
 
 const getProductById = async (req, res) => {
