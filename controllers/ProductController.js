@@ -46,6 +46,7 @@ ProductController.get(
         res.json(await ProductService.getAllProductsByAdmin());
     }),
 );
+
 ProductController.get('/admin', protect, auth('staff', 'admin'), asyncHandler(ProductService.getProductsByAdmin));
 ProductController.get('/:id', validate.getProductById, asyncHandler(ProductService.getProductById));
 ProductController.get('/', asyncHandler(ProductService.getProducts));
