@@ -76,7 +76,24 @@ ProductController.get(
     }),
 );
 
-ProductController.get('/', asyncHandler(ProductService.getProducts));
+ProductController.get(
+    '/',
+    asyncHandler(async (req, res) => {
+        const pageParameter = {
+            limit: parseInt(req.query.limit) > 0 ? parseInt(req.query.limit) : 12,
+            rating: parseInt(req.query.rating) >= 0 && parseInt(req.query.rating) <= 5 ? parseInt(req.query.rating) : 0,
+            maxPrice: parseInt(req.query.maxPrice) >= 0 ? parseInt(req.query.maxPrice) : null,
+            minPrice: parseInt(req.query.minPrice) >= 0 ? parseInt(req.query.minPrice) : null,
+            page: parseInt(req.query.page) >= 0 ? parseInt(req.query.page) : 0,
+            status: req.query.status || null,
+            sortBy: req.query.sortBy || null,
+            keyword: req.query.keyword,
+            category: req.query.category || null,
+        };
+        res.json(await ProductService.getProducts(pageParameter));
+    }),
+);
+
 ProductController.post(
     '/',
     multerUpload.array('imageFile'),

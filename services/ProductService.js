@@ -17,58 +17,26 @@ import {
     UnprocessableContentError,
 } from '../utils/errors.js';
 
-const getProducts = async (req, res) => {
-    const limit = parseInt(req.query.limit) > 0 ? parseInt(req.query.limit) : 12;
-    const rating = parseInt(req.query.rating) >= 0 && parseInt(req.query.rating) <= 5 ? parseInt(req.query.rating) : 0;
-    const maxPrice = parseInt(req.query.maxPrice) >= 0 ? parseInt(req.query.maxPrice) : null;
-    const minPrice = parseInt(req.query.minPrice) >= 0 ? parseInt(req.query.minPrice) : null;
-    let page = parseInt(req.query.page) >= 0 ? parseInt(req.query.page) : 0;
-    const sortBy = validateConstants(productQueryParams, 'sort', req.query.sortBy || 'default');
+const getProducts = async (pageParameter) => {
+    const sortBy = validateConstants(productQueryParams, 'sort', pageParameter.sortBy || 'default');
     let statusFilter = validateConstants(productQueryParams, 'status', 'default');
-    const keywordFilter = req.query.keyword
+    const keywordFilter = pageParameter.keyword
         ? {
               $text: {
                   //enclosed keyword will be treated as a phrase ($and) instead of individual words ($or)
-                  $search: `\"${req.query.keyword}\"`,
+                  $search: `\"${pageParameter.keyword}\"`,
                   $caseSensitive: false,
                   $diacriticSensitive: false,
               },
           }
         : {};
-    const sort = req.query.keyword ? { score: { $meta: 'textScore' }, ...sortBy } : { ...sortBy };
-    // const keyword = req.query.keyword
-    //     ? {
-    //           $or: [
-    //               {
-    //                   name: {
-    //                       $regex: req.query.keyword,
-    //                       $options: 'i',
-    //                   },
-    //               },
-    //               {
-    //                   slug: {
-    //                       $regex: req.query.keyword,
-    //                       $options: 'i',
-    //                   },
-    //               },
-
-    //               {
-    //                   keywords: {
-    //                       $elemMatch: {
-    //                           $eq: req.query.keyword,
-    //                       },
-    //                   },
-    //               },
-    //           ],
-    //       }
-    //     : {};
+    const sort = pageParameter.keyword ? { score: { $meta: 'textScore' }, ...sortBy } : { ...sortBy };
     //Check if category existed
-    let categoryName = req.query.category || null;
     let categoryIds = [];
-    if (!categoryName) {
+    if (!pageParameter.category) {
         categoryIds = await Category.find({ disabled: false }).select({ _id: 1 }).lean();
     } else {
-        const findCategory = await Category.findOne({ slug: categoryName, disabled: false })
+        const findCategory = await Category.findOne({ slug: pageParameter.category, disabled: false })
             .select({
                 _id: 1,
                 children: 1,
@@ -84,31 +52,27 @@ const getProducts = async (req, res) => {
         ...keywordFilter,
         ...categoryFilter,
         ...statusFilter,
-        ...priceRangeFilter(minPrice, maxPrice),
-        ...ratingFilter(rating),
+        ...priceRangeFilter(pageParameter.minPrice, pageParameter.maxPrice),
+        ...ratingFilter(pageParameter.rating),
     };
 
     const count = await Product.countDocuments(productFilter);
+    const paginationResult = { products: [], page: 0, pages: 0, total: 0 };
     //Check if product match keyword
-    if (count == 0) {
-        res.json({
-            message: 'Success',
-            data: { products: [], page: 0, pages: 0, total: 0 },
-        });
+    if (count != 0) {
+        const products = await Product.find(productFilter)
+            .limit(pageParameter.limit)
+            .skip(pageParameter.limit * pageParameter.page)
+            .sort({ ...sort })
+            .populate('category')
+            .populate('variants')
+            .lean();
+        paginationResult.products = products;
+        paginationResult.page = pageParameter.page;
+        paginationResult.pages = Math.ceil(count / pageParameter.limit);
+        paginationResult.total = count;
     }
-    //else
-    const products = await Product.find(productFilter)
-        .limit(limit)
-        .skip(limit * page)
-        .sort({ ...sort })
-        .populate('category')
-        .populate('variants')
-        .lean();
-
-    res.json({
-        message: 'Success',
-        data: { products, page, pages: Math.ceil(count / limit), total: count },
-    });
+    return paginationResult;
 };
 
 const getProductsByAdmin = async (pageParameter) => {
