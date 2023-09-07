@@ -62,14 +62,8 @@ const getOrdersByUserId = async (userId, pageParameter, currentUser) => {
     };
 };
 
-const getOrderById = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const order = await Order.findOne({ _id: req.params.id }).populate(['delivery', 'paymentInformation']).lean();
+const getOrderById = async (orderId, currentUser) => {
+    const order = await Order.findOne({ _id: orderId }).populate(['delivery', 'paymentInformation']).lean();
     if (!order) {
         throw new ItemNotFoundError('Đơn hàng không tồn tại');
     }
@@ -78,7 +72,7 @@ const getOrderById = async (req, res) => {
             throw new ItemNotFoundError('Đơn hàng không tồn tại');
         }
     }
-    res.json({ data: { order } });
+    return order;
 };
 
 const getOrders = async (req, res) => {

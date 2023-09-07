@@ -22,9 +22,22 @@ OrderController.get(
         res.json(await OrderService.getOrdersByUserId(userId, pageParameter, req.user));
     }),
 );
-OrderController.get('/:id/payment-status', protect, asyncHandler(OrderService.getOrderPaymentStatus));
-OrderController.post('/:id/refund', protect, asyncHandler(OrderService.refundTrans));
-OrderController.get('/:id', validate.validateOrderId, protect, asyncHandler(OrderService.getOrderById));
+
+// OrderController.get('/:id/payment-status', protect, asyncHandler(OrderService.getOrderPaymentStatus));
+
+// OrderController.post('/:id/refund', protect, asyncHandler(OrderService.refundTrans));
+
+OrderController.get(
+    '/:id',
+    validate.validateOrderId,
+    protect,
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const orderId = req.params.id || null;
+        res.json(await OrderService.getOrderById(orderId, req.user));
+    }),
+);
+
 OrderController.get('/', protect, auth('staff', 'admin'), asyncHandler(OrderService.getOrders));
 // orderRouter.post('/', validate.placeOrder, protect, auth('user'), asyncHandler(orderController.placeOrder));
 OrderController.post('/', validate.createOrder, protect, auth('user'), asyncHandler(OrderService.createOrder));
