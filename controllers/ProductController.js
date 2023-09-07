@@ -141,7 +141,26 @@ ProductController.put(
     validate.updateProduct,
     protect,
     auth('staff', 'admin'),
-    asyncHandler(ProductService.updateProduct),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const productId = req.params.id || null;
+        const updateProductRequest = {
+            name: req.body.name,
+            description: req.body.description,
+            category: req.body.category,
+            brand: req.body.brand,
+            weight: req.body.weight,
+            length: req.body.length,
+            height: req.body.height,
+            width: req.body.width,
+            updatedVersion: req.body.updatedVersion,
+            variants: JSON.parse(req.body.variants) || [],
+            keywords: JSON.parse(req.body.keywords) || [],
+            images: JSON.parse(req.body.images) || [],
+            imageFile: req.body.imageFile ? JSON.parse(req.body.imageFile) : [],
+        };
+        res.json(await ProductService.updateProduct(productId, updateProductRequest));
+    }),
 );
 ProductController.patch(
     '/:id/hide',
