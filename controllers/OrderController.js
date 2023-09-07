@@ -38,7 +38,21 @@ OrderController.get(
     }),
 );
 
-OrderController.get('/', protect, auth('staff', 'admin'), asyncHandler(OrderService.getOrders));
+OrderController.get(
+    '/',
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(async (req, res) => {
+        const pageParameter = {
+            limit: Number(req.query.limit) || 20,
+            page: Number(req.query.page) || 0,
+            sortBy: req.query.sortBy,
+            status: req.query.status,
+        };
+        res.json(await OrderService.getOrders(pageParameter));
+    }),
+);
+
 // orderRouter.post('/', validate.placeOrder, protect, auth('user'), asyncHandler(orderController.placeOrder));
 OrderController.post('/', validate.createOrder, protect, auth('user'), asyncHandler(OrderService.createOrder));
 // orderRouter.post(

@@ -75,22 +75,26 @@ const getOrderById = async (orderId, currentUser) => {
     return order;
 };
 
-const getOrders = async (req, res) => {
-    const limit = Number(req.query.limit) || 20; //EDIT HERE
-    const page = Number(req.query.page) || 0;
-    const sortBy = validateConstants(orderQueryParams, 'sort', req.query.sortBy);
-    const orderStatusFilter = validateConstants(orderQueryParams, 'status', req.query.status);
+const getOrders = async (pageParameter) => {
+    const sortBy = validateConstants(orderQueryParams, 'sort', pageParameter.sortBy);
+    const orderStatusFilter = validateConstants(orderQueryParams, 'status', pageParameter.status);
     const orderFilter = {
         ...orderStatusFilter,
     };
     const count = await Order.countDocuments(orderFilter);
     const orders = await Order.find({ ...orderFilter })
         .populate(['delivery', 'paymentInformation'])
-        .limit(limit)
-        .skip(limit * page)
+        .limit(pageParameter.limit)
+        .skip(pageParameter.limit * pageParameter.page)
         .sort({ ...sortBy })
         .lean();
-    res.json({ data: { orders, page, pages: Math.ceil(count / limit), total: count } });
+
+    return {
+        orders: orders,
+        page: pageParameter.page,
+        pages: Math.ceil(count / pageParameter.limit),
+        total: count,
+    };
 };
 
 const checkOrderProductList = async (size, orderItems) => {
