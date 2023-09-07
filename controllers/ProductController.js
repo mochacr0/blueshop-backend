@@ -4,7 +4,7 @@ import { protect, auth } from '../middleware/auth.middleware.js';
 import ProductService from '../services/ProductService.js';
 import { multerUpload } from '../utils/multer.js';
 import validate from '../middleware/validate.middleware.js';
-import { validateProductRequest } from '../utils/validateRequest.js';
+import { validateProductRequest, validateRequest } from '../utils/validateRequest.js';
 
 const ProductController = express.Router();
 
@@ -124,8 +124,17 @@ ProductController.post(
     validate.review,
     protect,
     auth('user'),
-    asyncHandler(ProductService.reviewProduct),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const productId = req.params.id || '';
+        const reviewRequest = {
+            rating: req.body.rating,
+            content: req.body.content,
+        };
+        res.json(await ProductService.reviewProduct(productId, reviewRequest, req.user));
+    }),
 );
+
 ProductController.put(
     '/:id',
     multerUpload.array('imageFile'),

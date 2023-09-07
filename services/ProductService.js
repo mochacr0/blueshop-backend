@@ -47,7 +47,6 @@ const getProducts = async (pageParameter) => {
         }
     }
     const categoryFilter = categoryIds.length > 0 ? { category: categoryIds } : {};
-
     const productFilter = {
         ...keywordFilter,
         ...categoryFilter,
@@ -614,21 +613,13 @@ const updateProduct = async (req, res, next) => {
     }
 };
 
-const reviewProduct = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const { rating, content } = req.body;
-    const productId = req.params.id || '';
+const reviewProduct = async (productId, request, currentUser) => {
     const product = await Product.findOne({ _id: productId });
     if (!product) {
         throw new ItemNotFoundError('Sản phẩm không tồn tại');
     }
     const order = await Order.findOne({
-        user: req.user._id,
+        user: currentUser._id,
         status: 'completed',
         'orderItems.product': product._id,
         'orderItems.isAbleToReview': true,
@@ -642,10 +633,10 @@ const reviewProduct = async (req, res) => {
         }
     });
     const review = {
-        name: req.user.name,
-        rating: Number(rating),
-        content: String(content),
-        user: req.user._id,
+        name: currentUser.name,
+        rating: Number(request.rating),
+        content: String(request.content),
+        user: currentUser._id,
     };
     product.reviews.push(review);
     product.rating =
@@ -653,9 +644,9 @@ const reviewProduct = async (req, res) => {
         product.reviews.length;
 
     await Promise.all([product.save(), order.save()]);
-
-    res.json({ message: 'Đánh giá thành công' });
+    return 'Đánh giá thành công';
 };
+
 const hideProduct = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
