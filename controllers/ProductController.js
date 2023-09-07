@@ -102,6 +102,7 @@ ProductController.post(
     protect,
     auth('staff', 'admin'),
     asyncHandler(async (req, res) => {
+        validateProductRequest(req);
         const createProductRequest = {
             name: req.body.name,
             description: req.body.description,
@@ -142,7 +143,7 @@ ProductController.put(
     protect,
     auth('staff', 'admin'),
     asyncHandler(async (req, res) => {
-        validateRequest(req);
+        validateProductRequest(req);
         const productId = req.params.id || null;
         const updateProductRequest = {
             name: req.body.name,
@@ -167,27 +168,46 @@ ProductController.patch(
     validate.hide,
     protect,
     auth('staff', 'admin'),
-    asyncHandler(ProductService.hideProduct),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const productId = req.params.id || null;
+        res.json(await ProductService.hideProduct(productId));
+    }),
 );
+
 ProductController.patch(
     '/:id/unhide',
     validate.unhide,
     protect,
     auth('staff', 'admin'),
-    asyncHandler(ProductService.unhideProduct),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const productId = req.params.id || null;
+        res.json(await ProductService.unhideProduct(productId));
+    }),
 );
+
 ProductController.patch(
     '/:id/restore',
     validate.restore,
     protect,
     auth('staff', 'admin'),
-    asyncHandler(ProductService.restoreProduct),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const productId = req.params.id || null;
+        res.json(await ProductService.restoreProduct(productId));
+    }),
 );
+
 ProductController.delete(
     '/:id',
     validate.delete,
     protect,
     auth('staff', 'admin'),
-    asyncHandler(ProductService.deleteProduct),
+    asyncHandler(async (req, res) => {
+        const productId = req.params.id || null;
+        res.json(await ProductService.deleteProduct(productId));
+    }),
 );
+
 export default ProductController;

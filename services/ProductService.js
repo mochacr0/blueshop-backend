@@ -612,72 +612,41 @@ const reviewProduct = async (productId, request, currentUser) => {
     return 'Đánh giá thành công';
 };
 
-const hideProduct = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const productId = req.params.id || null;
+const hideProduct = async (productId) => {
     const disabledProduct = await Product.findOneAndUpdate({ _id: productId }, { disabled: true });
     if (!disabledProduct) {
         throw new ItemNotFoundError('Sản phẩm không tồn tại!');
     }
-    const disabledVariant = await Variant.updateMany({ product: productId }, { $set: { disabled: true } });
-
-    res.json({ message: 'Ẩn sản phẩm thành công' });
+    await Variant.updateMany({ product: productId }, { $set: { disabled: true } });
+    return 'Ẩn sản phẩm thành công';
 };
-const unhideProduct = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const productId = req.params.id || null;
+
+const unhideProduct = async (productId) => {
     const disabledProduct = await Product.findOneAndUpdate({ _id: productId }, { disabled: false });
     if (!disabledProduct) {
         throw new ItemNotFoundError('Sản phẩm không tồn tại!');
     }
-    const disabledVariant = await Variant.updateMany({ product: productId }, { $set: { disabled: false } });
+    await Variant.updateMany({ product: productId }, { $set: { disabled: false } });
 
-    res.json({ message: 'Bỏ ẩn sản phẩm thành công' });
+    return 'Bỏ ẩn sản phẩm thành công';
 };
-const restoreProduct = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const productId = req.params.id || null;
+
+const restoreProduct = async (productId) => {
     const deletedProduct = await Product.findOneAndUpdate({ _id: productId }, { deleted: false });
     if (!deletedProduct) {
         throw new ItemNotFoundError('Sản phẩm không tồn tại');
     }
-    const deletedVariant = await Variant.updateMany({ product: productId }, { $set: { deleted: false } });
-    res.json({
-        message: 'Khôi phục sản phẩm thành công',
-    });
+    await Variant.updateMany({ product: productId }, { $set: { deleted: false } });
+    return 'Khôi phục sản phẩm thành công';
 };
-const deleteProduct = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const productId = req.params.id || null;
+
+const deleteProduct = async (productId) => {
     const deletedProduct = await Product.findOneAndUpdate({ _id: productId }, { deleted: true });
     if (!deletedProduct) {
         throw new ItemNotFoundError('Sản phẩm không tồn tại');
     }
-    const deletedVariant = await Variant.updateMany({ product: productId }, { $set: { deleted: true } });
-    res.json({
-        message:
-            'Xóa sản phẩm thành công. Bạn có thể khôi phục trong vòng 30 ngày trước khi sản phẩm này bị xóa hoàn toàn',
-    });
+    await Variant.updateMany({ product: productId }, { $set: { deleted: true } });
+    return 'Xóa sản phẩm thành công. Bạn có thể khôi phục trong vòng 30 ngày trước khi sản phẩm này bị xóa hoàn toàn';
 };
 
 const ProductService = {
