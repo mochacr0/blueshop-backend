@@ -194,15 +194,7 @@ const services = async (req, res) => {
             throw new InternalServerError(error.response.data.message || error.message || '');
         });
 };
-const preview = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const orderId = req.params.id;
-    const required_note = req.body.requiredNote || null;
+const preview = async (orderId, requiredNote) => {
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate('delivery');
     if (!order) {
         throw new UnprocessableContentError('Đơn hàng không tồn tại');
@@ -212,7 +204,7 @@ const preview = async (req, res) => {
             shop_id: Number(process.env.GHN_SHOP_ID),
             payment_type_id: 1,
             note: order.delivery.note || '',
-            required_note: required_note || order.delivery.required_note,
+            required_note: requiredNote || order.delivery.required_note,
             // client_order_code: order.user,
             to_name: order.delivery.to_name,
             to_phone: order.delivery.to_phone,
@@ -232,17 +224,16 @@ const preview = async (req, res) => {
             items: order.delivery.items,
         }),
     };
-    const deliveryInfo = await GHN_Request.get('/v2/shipping-order/preview', config)
-        .then((response) => {
-            return response.data.data;
-        })
-        .catch((error) => {
-            res.status(error.response.data.code || 502);
-            throw new InternalServerError(error.response.data.message || error.message || null);
-        });
-
-    res.json({ data: { deliveryInfo } });
+    let deliveryInfo;
+    try {
+        const httpResponse = await GHN_Request.get('/v2/shipping-order/preview', config);
+        deliveryInfo = httpResponse?.data?.data;
+    } catch (error) {
+        throw new InternalServerError(error.response.data.message || error.message || null);
+    }
+    return deliveryInfo;
 };
+
 const printOrder = async (orderId, pageSize) => {
     if (!orderId || orderId.trim() == '') {
         throw new UnprocessableContentError('Đơn hàng không tồn tại');

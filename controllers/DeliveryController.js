@@ -94,16 +94,21 @@ DeliveryController.post(
     }),
 );
 
-DeliveryController.post(
-    '/shipping-order/lead-time',
-    validate.estimatedDeliveryTime,
-    asyncHandler(DeliveryService.estimatedDeliveryTime),
-);
+// DeliveryController.post(
+//     '/shipping-order/lead-time',
+//     validate.estimatedDeliveryTime,
+//     asyncHandler(DeliveryService.estimatedDeliveryTime),
+// );
+
 DeliveryController.post(
     '/shipping-order/:id/preview',
     protect,
     auth('staff', 'admin'),
-    asyncHandler(DeliveryService.preview),
+    asyncHandler(async (req, res) => {
+        const orderId = req.params.id;
+        const requiredNote = req.body.requiredNote || null;
+        res.json(await DeliveryService.preview(orderId, requiredNote));
+    }),
 );
 
 DeliveryController.post(
