@@ -4,7 +4,7 @@ import { auth, protect } from '../middleware/auth.middleware.js';
 import validate from '../middleware/validate.middleware.js';
 import CategoryService from '../services/CategoryService.js';
 import { multerUpload } from '../utils/multer.js';
-import validateRequest from '../utils/validateRequest.js';
+import { validateRequest } from '../utils/validateRequest.js';
 
 const CategoryController = express.Router();
 

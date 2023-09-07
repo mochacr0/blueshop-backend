@@ -247,29 +247,9 @@ const getProductById = async (productId) => {
     return product;
 };
 
-const createProduct = async (req, res, next) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        if (req.files && req.files.length > 0) {
-            await req.files.map(async (image) => {
-                fs.unlink(image.path, (error) => {
-                    if (error) {
-                        throw new Error(error);
-                    }
-                });
-            });
-        }
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    let { name, description, category, brand, weight, length, height, width } = req.body;
-    const variants = JSON.parse(req.body.variants) || [];
-    const keywords = JSON.parse(req.body.keywords) || [];
-    const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : [];
-
-    const findProduct = Product.exists({ name });
-    const findCategory = Category.findOne({ _id: category }).lean();
+const createProduct = async (request) => {
+    const findProduct = Product.exists({ name: request.name });
+    const findCategory = Category.findOne({ _id: request.category }).lean();
     const [existedProduct, existedCategory] = await Promise.all([findProduct, findCategory]);
     if (existedProduct) {
         throw new InvalidDataError('Tên sản phẩm đã tồn tại');
@@ -279,18 +259,22 @@ const createProduct = async (req, res, next) => {
     }
 
     const variantsValue = {};
-    variants.map((variant) => {
+    request.variants.forEach((variant) => {
         if (!variant.price) {
             throw new InvalidDataError('Giá của các sản phẩm không được để trống');
         }
-        if (Number(variant.price) == NaN) {
-            throw new InvalidDataError('Giá của các sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0');
-        }
         if (!variant.quantity) {
-            throw new InvalidDataError('Giá của các sản phẩm không được để trống');
+            throw new InvalidDataError('Số lượng của các sản phẩm không được để trống');
         }
-        if (Number(variant.quantity) == NaN) {
+
+        variant.price = parseInt(variant.price);
+        variant.quantity = parseInt(variant.quantity);
+
+        if (isNaN(variant.price) || variant.price < 0) {
             throw new InvalidDataError('Giá của các sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0');
+        }
+        if (isNaN(variant.quantity) || variant.quantity < 0) {
+            throw new InvalidDataError('Sớ lượng của các sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0');
         }
         if (!variant.attributes) {
             throw new InvalidDataError('Danh sách thuộc tính các biến thể không được để trống');
@@ -308,24 +292,26 @@ const createProduct = async (req, res, next) => {
             variantsValue[`${attr.name}`].push(attr.value);
         });
     });
+
     const countVariant = Object.keys(variantsValue).reduce((accumulator, key) => {
         const variantsSet = new Set(variantsValue[key]);
         return accumulator * variantsSet.size;
     }, 1);
-    if (countVariant < variants.length) {
+
+    if (countVariant < request.variants.length) {
         throw new InvalidDataError('Giá trị của các biến thể không được trùng nhau');
     }
     //generate slug
-    let generatedSlug = slug(name);
+    let generatedSlug = slug(request.name);
     const existSlug = await Product.exists({ slug: generatedSlug });
     if (existSlug) {
         generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
     }
 
     //Generate list keywords
-    const generateKeywords = keywords || [];
-    generateKeywords.push(existedCategory.name, existedCategory.slug, generatedSlug, brand);
-    const extractKeywordsName = extractKeywords(name);
+    const generateKeywords = request.keywords || [];
+    generateKeywords.push(existedCategory.name, existedCategory.slug, generatedSlug, request.brand);
+    const extractKeywordsName = extractKeywords(request.name);
     generateKeywords.push(...extractKeywordsName);
 
     const session = await mongoose.startSession();
@@ -334,77 +320,72 @@ const createProduct = async (req, res, next) => {
         readConcern: { level: 'local' },
         writeConcern: { w: 'majority' },
     };
-    try {
-        await session.withTransaction(async () => {
-            const product = new Product({
-                name,
-                slug: generatedSlug,
-                description,
-                category,
-                weight,
-                length,
-                height,
-                width,
-                brand,
-                keywords,
+    let newProduct;
+    await session.withTransaction(async () => {
+        const product = new Product({
+            name: request.name,
+            slug: generatedSlug,
+            description: request.description,
+            category: request.category,
+            weight: request.weight,
+            length: request.length,
+            height: request.height,
+            width: request.height,
+            brand: request.brand,
+            keywords: request.keywords,
+        });
+        if (request.variants && request.variants.length > 0) {
+            let totalQuantity = 0;
+            let minPrice = 0;
+            let minPriceSale = -1;
+
+            const variantIds = [];
+            const createVariant = request.variants.map(async (variant) => {
+                if (!variant.priceSale) {
+                    variant.priceSale = variant.price;
+                }
+                if (minPriceSale == -1) {
+                    minPriceSale = variant.priceSale;
+                    minPrice = variant.price;
+                }
+                if (minPriceSale > variant.priceSale) {
+                    minPriceSale = variant.priceSale;
+                    minPrice = variant.price;
+                }
+                totalQuantity += Number(variant.quantity);
+
+                const newVariant = new Variant({ product: product._id, ...variant });
+                await newVariant.save({ session });
+                variantIds.push(newVariant._id);
             });
-            if (variants && variants.length > 0) {
-                let totalQuantity = 0;
-                let minPrice = 0;
-                let minPriceSale = -1;
+            await Promise.all(createVariant);
 
-                const variantIds = [];
-                const createVariant = variants.map(async (variant) => {
-                    if (!variant.priceSale) {
-                        variant.priceSale = variant.price;
+            // upload image to cloundinary
+            const images = [];
+            if (request.imageFile && request.imageFile.length > 0) {
+                const uploadListImage = request.imageFile.map(async (image) => {
+                    const uploadImage = await cloudinaryUpload(image, 'FashionShop/products');
+                    if (!uploadImage) {
+                        throw new InternalServerError('Xảy ra lỗi trong quá trình đăng tải hình ảnh sản phẩm');
                     }
-                    if (minPriceSale == -1) {
-                        minPriceSale = variant.priceSale;
-                        minPrice = variant.price;
-                    }
-                    if (minPriceSale > variant.priceSale) {
-                        minPriceSale = variant.priceSale;
-                        minPrice = variant.price;
-                    }
-                    totalQuantity += Number(variant.quantity);
-
-                    const newVariant = new Variant({ product: product._id, ...variant });
-                    await newVariant.save({ session });
-                    variantIds.push(newVariant._id);
+                    return uploadImage.secure_url;
                 });
-                await Promise.all(createVariant);
-
-                // upload image to cloundinary
-                const images = [];
-                if (imageFile && imageFile.length > 0) {
-                    const uploadListImage = imageFile.map(async (image) => {
-                        const uploadImage = await cloudinaryUpload(image, 'FashionShop/products');
-                        if (!uploadImage) {
-                            throw new InternalServerError('Xảy ra lỗi trong quá trình đăng tải hình ảnh sản phẩm');
-                        }
-                        return uploadImage.secure_url;
-                    });
-                    const imageList = await Promise.all(uploadListImage);
-                    images.push(...imageList);
-                }
-                if (images.length === 0) {
-                    throw new InvalidDataError('Thiếu hình ảnh. Vui lòng đăng tải ít nhất 1 hình ảnh');
-                }
-                product.images = images;
-                product.variants = variantIds;
-                product.price = minPrice;
-                product.priceSale = minPriceSale;
-                product.quantity = totalQuantity;
+                const imageList = await Promise.all(uploadListImage);
+                images.push(...imageList);
             }
-            const newProduct = await (await product.save({ session })).populate('variants');
-
-            res.json({ message: 'Thêm sản phẩm thành công', data: { newProduct } });
-        }, transactionOptions);
-    } catch (error) {
-        next(error);
-    } finally {
-        session.endSession();
-    }
+            if (images.length === 0) {
+                throw new InvalidDataError('Thiếu hình ảnh. Vui lòng đăng tải ít nhất 1 hình ảnh');
+            }
+            product.images = images;
+            product.variants = variantIds;
+            product.price = minPrice;
+            product.priceSale = minPriceSale;
+            product.quantity = totalQuantity;
+        }
+        newProduct = await (await product.save({ session })).populate('variants');
+    }, transactionOptions);
+    session.endSession();
+    return newProduct;
 };
 
 const updateProduct = async (req, res, next) => {

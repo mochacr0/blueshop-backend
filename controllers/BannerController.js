@@ -4,7 +4,7 @@ import { protect, auth } from '../middleware/auth.middleware.js';
 import { multerUpload } from '../utils/multer.js';
 import BannerService from '../services/BannerService.js';
 import validate from '../middleware/validate.middleware.js';
-import validateRequest from '../utils/validateRequest.js';
+import { validateRequest } from '../utils/validateRequest.js';
 
 const BannerController = express.Router();
 

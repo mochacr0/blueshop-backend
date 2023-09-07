@@ -5,7 +5,7 @@ import { passportGoogleConfig } from '../config/oauth2.google.config.js';
 import { auth, protect } from '../middleware/auth.middleware.js';
 import validate from '../middleware/validate.middleware.js';
 import UserService from '../services/UserService.js';
-import validateRequest from '../utils/validateRequest.js';
+import { validateRequest } from '../utils/validateRequest.js';
 
 const UserController = express.Router();
 passportGoogleConfig(passport);

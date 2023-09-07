@@ -3,7 +3,7 @@ import asyncHandler from 'express-async-handler';
 import { protect, auth } from '../middleware/auth.middleware.js';
 import validate from '../middleware/validate.middleware.js';
 import DeliveryService from '../services/DeliveryService.js';
-import validateRequest from '../utils/validateRequest.js';
+import { validateRequest } from '../utils/validateRequest.js';
 
 const DeliveryController = express.Router();
 

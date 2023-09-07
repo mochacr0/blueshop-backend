@@ -3,7 +3,7 @@ import asyncHandler from 'express-async-handler';
 import { protect, auth, getUserData } from '../middleware/auth.middleware.js';
 import VoucherService from '../services/VoucherService.js';
 import validate from '../middleware/validate.middleware.js';
-import validateRequest from '../utils/validateRequest.js';
+import { validateRequest } from '../utils/validateRequest.js';
 
 const VoucherController = express.Router();
 

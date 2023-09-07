@@ -4,6 +4,7 @@ import { protect, auth } from '../middleware/auth.middleware.js';
 import ProductService from '../services/ProductService.js';
 import { multerUpload } from '../utils/multer.js';
 import validate from '../middleware/validate.middleware.js';
+import { validateProductRequest } from '../utils/validateRequest.js';
 
 const ProductController = express.Router();
 
@@ -100,8 +101,24 @@ ProductController.post(
     validate.createProduct,
     protect,
     auth('staff', 'admin'),
-    asyncHandler(ProductService.createProduct),
+    asyncHandler(async (req, res) => {
+        const createProductRequest = {
+            name: req.body.name,
+            description: req.body.description,
+            category: req.body.category,
+            brand: req.body.brand,
+            weight: req.body.weight,
+            length: req.body.length,
+            height: req.body.height,
+            width: req.body.height,
+            variants: JSON.parse(req.body.variants) || [],
+            keywords: JSON.parse(req.body.keywords) || [],
+            imageFile: req.body.imageFile ? JSON.parse(req.body.imageFile) : [],
+        };
+        res.json(await ProductService.createProduct(createProductRequest));
+    }),
 );
+
 ProductController.post(
     '/:id/review',
     validate.review,
