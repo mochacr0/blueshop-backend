@@ -116,6 +116,10 @@ DeliveryController.post(
     validate.updateCOD,
     protect,
     auth('staff', 'admin'),
-    asyncHandler(DeliveryService.updateCOD),
+    asyncHandler(async (req, res) => {
+        const orderId = req.params.id || '';
+        const codAmount = Number(req.body.cod_amount);
+        res.json(await DeliveryService.updateCOD(orderId, codAmount));
+    }),
 );
 export default DeliveryController;

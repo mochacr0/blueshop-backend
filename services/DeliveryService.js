@@ -263,15 +263,7 @@ const printOrder = async (orderId, pageSize) => {
         );
     }
 };
-const updateCOD = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const orderId = req.params.id || '';
-    const cod_amount = Number(req.body.cod_amount);
+const updateCOD = async (orderId, codAmount) => {
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate(['delivery', 'paymentInformation']);
     if (!order) {
         throw new UnprocessableContentError('Đơn hàng không tồn tại');
@@ -293,33 +285,24 @@ const updateCOD = async (req, res) => {
 
     if (!order.delivery.deliveryCode || order.delivery?.deliveryCode.trim() == '') {
         throw new InvalidDataError('Đơn hàng chưa tạo đơn giao của đơn vị vận chuyển');
-    } else {
-        const config = {
-            data: JSON.stringify({
-                order_code: order.delivery.deliveryCode,
-                cod_amount: cod_amount,
-            }),
-        };
-        await GHN_Request.get('/v2/shipping-order/updateCOD', config)
-            .then(async (response) => {
-                order.delivery.cod_amount = cod_amount;
-                await order.delivery.save();
-                res.json({
-                    message: 'Success',
-                    data: null,
-                });
-            })
-            .catch((error) => {
-                res.status(error.response.data.code || 500);
-                throw new InternalServerError(
-                    error.response.data.message.code_message_value ||
-                        error.response.data.message ||
-                        error.message ||
-                        '',
-                );
-            });
     }
+    const config = {
+        data: JSON.stringify({
+            order_code: order.delivery.deliveryCode,
+            cod_amount: codAmount,
+        }),
+    };
+    try {
+        await GHN_Request.get('/v2/shipping-order/updateCOD', config);
+    } catch (errro) {
+        throw new InternalServerError(
+            error.response.data.message.code_message_value || error.response.data.message || error.message || '',
+        );
+    }
+    order.delivery.cod_amount = codAmount;
+    return await order.delivery.save();
 };
+
 const updateStatus = async (req, res) => {
     const orderId = req.params.id || '';
     const deliveryCode = Number(req.body.OrderCode);
