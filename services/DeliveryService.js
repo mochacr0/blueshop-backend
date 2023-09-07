@@ -1,17 +1,14 @@
-import * as fs from 'fs';
-import { GHN_Request } from '../utils/request.js';
 import { validationResult } from 'express-validator';
-import Order from '../models/order.model.js';
-import schedule, { scheduleJob } from 'node-schedule';
 import Delivery from '../models/delivery.model.js';
-import { deliveryQueryParams, validateConstants } from '../utils/searchConstants.js';
+import Order from '../models/order.model.js';
 import {
     InternalServerError,
     InvalidDataError,
-    ItemNotFoundError,
     UnavailableServiceError,
     UnprocessableContentError,
 } from '../utils/errors.js';
+import { GHN_Request } from '../utils/request.js';
+import { deliveryQueryParams, validateConstants } from '../utils/searchConstants.js';
 
 const getDeliveries = async (pageParameter) => {
     const sortBy = validateConstants(deliveryQueryParams, 'sort', pageParameter.sortBy);
@@ -357,6 +354,7 @@ const updateStatus = async (req, res) => {
             });
     }
 };
+
 const DeliveryService = {
     getDeliveries,
     getDistrictsByProvinceId,

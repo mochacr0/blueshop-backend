@@ -56,30 +56,11 @@ DeliveryController.get(
     }),
 );
 
-// DeliveryController.post(
-//     '/shipping-order/fee',
-//     validate.calculateFee,
-//     asyncHandler(async (req, res) => {
-//         const calculateFeeRequest = {
-//             to_district_id: req.body.to_district_id,
-//             to_ward_code: req.body.to_ward_code,
-//             height: req.body.height || null,
-//             length: req.body.length || null,
-//             weight,
-//             width: req.body.width || null,
-//             insurance_value: req.body.insurance_value || null,
-//             coupon: req.body.coupon || null,
-//         };
-//         res.json(await DeliveryService.calculateFee(calculateFeeRequest));
-//     }),
-// );
-
-// DeliveryController.post('/shipping-order/update-status', asyncHandler(DeliveryService.updateStatus));
-
 DeliveryController.post(
     '/shipping-order/services',
     validate.calculateFee,
     asyncHandler(async (req, res) => {
+        validateRequest(req);
         const calculateFeeRequest = {
             to_district_id: req.body.to_district_id,
             to_ward_code: req.body.to_ward_code,
@@ -93,12 +74,6 @@ DeliveryController.post(
         res.json(await DeliveryService.calculateFee(calculateFeeRequest));
     }),
 );
-
-// DeliveryController.post(
-//     '/shipping-order/lead-time',
-//     validate.estimatedDeliveryTime,
-//     asyncHandler(DeliveryService.estimatedDeliveryTime),
-// );
 
 DeliveryController.post(
     '/shipping-order/:id/preview',
@@ -117,6 +92,7 @@ DeliveryController.post(
     protect,
     auth('staff', 'admin'),
     asyncHandler(async (req, res) => {
+        validateRequest(req);
         const orderId = req.params.id || '';
         const codAmount = Number(req.body.cod_amount);
         res.json(await DeliveryService.updateCOD(orderId, codAmount));
