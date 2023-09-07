@@ -1,21 +1,18 @@
-import * as fs from 'fs';
 import mongoose from 'mongoose';
-import Product from '../models/product.model.js';
+import slug from 'slug';
 import Category from '../models/category.model.js';
 import Order from '../models/order.model.js';
-import Cart from '../models/cart.model.js';
+import Product from '../models/product.model.js';
 import Variant from '../models/variant.model.js';
-import { productQueryParams, validateConstants, priceRangeFilter, ratingFilter } from '../utils/searchConstants.js';
-import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
-import { Result, validationResult } from 'express-validator';
-import slug from 'slug';
-import { extractKeywords } from '../utils/extractKeywords.js';
+import { cloudinaryUpload } from '../utils/cloudinary.js';
 import {
     InternalServerError,
     InvalidDataError,
     ItemNotFoundError,
     UnprocessableContentError,
 } from '../utils/errors.js';
+import { extractKeywords } from '../utils/extractKeywords.js';
+import { priceRangeFilter, productQueryParams, ratingFilter, validateConstants } from '../utils/searchConstants.js';
 
 const getProducts = async (pageParameter) => {
     const sortBy = validateConstants(productQueryParams, 'sort', pageParameter.sortBy || 'default');
@@ -524,7 +521,6 @@ const updateProduct = async (productId, request) => {
                         variantUpdate.attributes = variant.attributes || variantUpdate.attributes;
                         variantUpdate.price = variant.price || variantUpdate.price;
                         variantUpdate.priceSale = variant.priceSale || variantUpdate.priceSale;
-                        // variantUpdate.image = variant.image || variantUpdate.image;
                         variantUpdate.quantity = variant.quantity || variantUpdate.quantity;
                         await variantUpdate.save({ session });
                         updateVariantsId.push(variantUpdate._id);
@@ -575,7 +571,7 @@ const updateProduct = async (productId, request) => {
         updatedProduct = await (await currentProduct.save({ session })).populate(['variants', 'category']);
     }, transactionOptions);
     session.endSession();
-    return updateProduct;
+    return updatedProduct;
 };
 
 const reviewProduct = async (productId, request, currentUser) => {
