@@ -275,18 +275,12 @@ const getProductBySlug = async (slug) => {
     return product;
 };
 
-const getProductById = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const product = await Product.findOne({ _id: req.params.id }).populate(['variants', 'category']).lean();
+const getProductById = async (productId) => {
+    const product = await Product.findOne({ _id: productId }).populate(['variants', 'category']).lean();
     if (!product) {
         throw new ItemNotFoundError('Sản phẩm không tồn tại');
     }
-    res.json({ message: 'Success', data: { product } });
+    return product;
 };
 
 const createProduct = async (req, res, next) => {

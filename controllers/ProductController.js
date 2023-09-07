@@ -67,7 +67,15 @@ ProductController.get(
     }),
 );
 
-ProductController.get('/:id', validate.getProductById, asyncHandler(ProductService.getProductById));
+ProductController.get(
+    '/:id',
+    validate.getProductById,
+    asyncHandler(async (req, res) => {
+        const productId = req.params.id;
+        res.json(await ProductService.getProductById(productId));
+    }),
+);
+
 ProductController.get('/', asyncHandler(ProductService.getProducts));
 ProductController.post(
     '/',
