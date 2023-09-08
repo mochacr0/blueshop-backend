@@ -1,35 +1,34 @@
-import mongoose from 'mongoose';
-import Product from '../models/product.model.js';
-import Order from '../models/order.model.js';
-import Variant from '../models/variant.model.js';
-import Cart from '../models/cart.model.js';
-import DiscountCode from '../models/discountCode.model.js';
-import User from '../models/user.model.js';
-import { orderQueryParams, validateConstants } from '../utils/searchConstants.js';
-import { validationResult } from 'express-validator';
-import { createCheckStatusBody, createPaymentBody, createRefundTransBody } from '../utils/payment-with-momo.js';
-import axios from 'axios';
-import Payment from '../models/payment.model.js';
-import { v4 as uuidv4 } from 'uuid';
-import { momo_Request, GHN_Request } from '../utils/request.js';
-import Delivery from '../models/delivery.model.js';
-import statusResponseFalse from '../utils/messageMoMo.js';
 import crypto from 'crypto';
-import { MAX_MINUTES_WAITING_TO_PAY, MAX_DAYS_WAITING_FOR_SHOP_CONFIRMATION } from '../utils/orderConstants.js';
-import {
-    PAYMENT_WITH_CASH,
-    PAYMENT_WITH_MOMO,
-    PAYMENT_WITH_ATM,
-    PAYMENT_WITH_CREDIT_CARD,
-} from '../utils/paymentConstants.js';
+import { validationResult } from 'express-validator';
+import mongoose from 'mongoose';
+import { v4 as uuidv4 } from 'uuid';
+import Cart from '../models/cart.model.js';
+import Delivery from '../models/delivery.model.js';
+import DiscountCode from '../models/discountCode.model.js';
+import Order from '../models/order.model.js';
+import Payment from '../models/payment.model.js';
+import Product from '../models/product.model.js';
+import User from '../models/user.model.js';
+import Variant from '../models/variant.model.js';
 import TaskService from '../services/TaskService.js';
 import {
-    ItemNotFoundError,
-    InvalidDataError,
-    UnauthenticatedError,
     InternalServerError,
+    InvalidDataError,
+    ItemNotFoundError,
+    UnauthenticatedError,
     UnprocessableContentError,
 } from '../utils/errors.js';
+import statusResponseFalse from '../utils/messageMoMo.js';
+import { MAX_DAYS_WAITING_FOR_SHOP_CONFIRMATION, MAX_MINUTES_WAITING_TO_PAY } from '../utils/orderConstants.js';
+import { createCheckStatusBody, createPaymentBody, createRefundTransBody } from '../utils/payment-with-momo.js';
+import {
+    PAYMENT_WITH_ATM,
+    PAYMENT_WITH_CASH,
+    PAYMENT_WITH_CREDIT_CARD,
+    PAYMENT_WITH_MOMO,
+} from '../utils/paymentConstants.js';
+import { GHN_Request, momo_Request } from '../utils/request.js';
+import { orderQueryParams, validateConstants } from '../utils/searchConstants.js';
 
 //CONSTANT
 const TYPE_DISCOUNT_MONEY = 1;
@@ -110,7 +109,7 @@ const checkOrderProductList = async (size, orderItems) => {
                 disabled: false,
                 deleted: false,
             }).populate('product');
-            if (!orderedVariant || !orderedVariant.product?._id) {
+            if (!orderedVariant?.product?._id) {
                 throw new Error(`Sản phẩm "${orderItem.name ? orderItem.name : orderItem.variant}" không tồn tại`);
             }
             if (orderedVariant.quantity < orderItem.quantity) {
@@ -131,25 +130,10 @@ const checkOrderProductList = async (size, orderItems) => {
             });
         }),
     );
-    // .catch((error) => {
-    //     result.error = 1;
-    //     result.message = error.message;
-    //     result.orderItemIds = [];
-    // });
-    //temp
-    // size.height = 5;
-    // size.length = 5;
-    // size.width = 5;
     return result;
 };
 
 const calculateFee = async (shippingAddress, size, price) => {
-    // const deliveryFee = {
-    //     fee: 0,
-    //     error: 0,
-    //     status: 200,
-    //     message: '',
-    // };
     if (size.weight == 0) {
         size.weight = 1;
     }
@@ -288,7 +272,6 @@ const createOrder = async (request, currentUser) => {
     };
     let newOrder;
     await session.withTransaction(async () => {
-        // const newOrderItems = await createOrderItems(session, orderItems);
         const dataOrderItem = [];
         const createOrderItems = request.orderItems.map(async (orderItem) => {
             const orderedVariant = await Variant.findOneAndUpdate(
@@ -313,7 +296,6 @@ const createOrder = async (request, currentUser) => {
             )
                 .session(session)
                 .lean();
-            // await Promise.all([orderedVariant, orderedProduct]);
             if (!orderedProduct) {
                 await session.abortTransaction();
                 throw new UnprocessableContentError(`Sản phẩm có ID "${orderItem.variant}" không tồn tại`);
@@ -625,7 +607,6 @@ const confirmDelivery = async (orderId, request, currentUser) => {
     order.delivery.leadTime = deliveryInfo.expected_delivery_time || order.delivery.leadTime;
     order.delivery.deliveryFee = deliveryInfo.total_fee || order.delivery.deliveryFee;
     order.delivery.deliveryCode = deliveryInfo.order_code || order.delivery.deliveryCode;
-    // order.delivery.statusHistory = deliveryInfo.log || order.delivery.statusHistory;
     order.statusHistory.push({
         status: 'delivering',
         description: request.description,
@@ -808,7 +789,7 @@ const getOrderPaymentStatus = async (req, res) => {
             'Content-Length': Buffer.byteLength(requestBody),
         },
     };
-    const result = await momo_Request
+    await momo_Request
         .post('/query', requestBody, config)
         .then((response) => {
             if (response.data.resultCode == 0) {
@@ -842,12 +823,11 @@ const refundOrderInCancel = async (paymentInformation) => {
             'Content-Length': Buffer.byteLength(requestBody),
         },
     };
-    const result = await momo_Request
+    await momo_Request
         .post('/refund', requestBody, config)
         .then(async (response) => {
             paymentInformation.status = { state: 'refunded', description: 'Hoàn tiền thành công' };
             await paymentInformation.save();
-            return;
         })
         .catch(async (error) => {
             console.log(error);
@@ -876,7 +856,7 @@ const refundTrans = async (req, res) => {
             'Content-Length': Buffer.byteLength(requestBody),
         },
     };
-    const result = await momo_Request
+    await momo_Request
         .post('/refund', requestBody, config)
         .then((response) => {
             res.json(response.data);
@@ -892,7 +872,7 @@ const adminPaymentOrder = async (orderId, currentUser) => {
     if (!order) {
         throw new ItemNotFoundError('Đơn hàng không tồn tại!');
     }
-    if (order.paymentInformation.paid == true) {
+    if (order.paymentInformation.paid) {
         throw new InvalidDataError('Đơn hàng đã hoàn thành việc thanh toán');
     }
     const session = await mongoose.startSession();
@@ -910,27 +890,25 @@ const adminPaymentOrder = async (orderId, currentUser) => {
             updateBy: currentUser._id,
         });
         if (order.delivery.deliveryCode && order.delivery?.deliveryCode.trim() != '') {
-            {
-                const config = {
-                    data: JSON.stringify({
-                        order_code: order.delivery.deliveryCode,
-                        cod_amount: 0,
-                    }),
-                };
-                await GHN_Request.get('/v2/shipping-order/updateCOD', config)
-                    .then(async (response) => {
-                        order.delivery.cod_amount = cod_amount;
-                        await order.delivery.save({ session });
-                    })
-                    .catch((error) => {
-                        throw new InternalServerError(
-                            error.response.data.message.code_message_value ||
-                                error.response.data.message ||
-                                error.message ||
-                                '',
-                        );
-                    });
-            }
+            const config = {
+                data: JSON.stringify({
+                    order_code: order.delivery.deliveryCode,
+                    cod_amount: 0,
+                }),
+            };
+            await GHN_Request.get('/v2/shipping-order/updateCOD', config)
+                .then(async (response) => {
+                    order.delivery.cod_amount = cod_amount;
+                    await order.delivery.save({ session });
+                })
+                .catch((error) => {
+                    throw new InternalServerError(
+                        error.response.data.message.code_message_value ||
+                            error.response.data.message ||
+                            error.message ||
+                            '',
+                    );
+                });
         }
         await order.paymentInformation.save({ session });
         deliveredOrder = await (await order.save({ session })).populate(['delivery', 'paymentInformation']);
@@ -1013,13 +991,13 @@ const cancelOrder = async (req, res, next) => {
 
 const rollbackProductQuantites = async (order, session) => {
     const updateOrderItems = order.orderItems.map(async (orderItem) => {
-        const updateProduct = await Product.findOneAndUpdate(
+        await Product.findOneAndUpdate(
             { _id: orderItem.product },
             { $inc: { totalSales: -orderItem.quantity, quantity: +orderItem.quantity } },
         )
             .session(session)
             .lean();
-        const updateVariant = await Variant.findOneAndUpdate(
+        await Variant.findOneAndUpdate(
             { product: orderItem.product._id, attributes: orderItem.attributes },
             { $inc: { quantity: +orderItem.quantity } },
             { new: true },

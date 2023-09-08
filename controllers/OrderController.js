@@ -23,10 +23,6 @@ OrderController.get(
     }),
 );
 
-// OrderController.get('/:id/payment-status', protect, asyncHandler(OrderService.getOrderPaymentStatus));
-
-// OrderController.post('/:id/refund', protect, asyncHandler(OrderService.refundTrans));
-
 OrderController.get(
     '/:id',
     validate.validateOrderId,
