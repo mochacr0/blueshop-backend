@@ -563,10 +563,7 @@ const confirmOrder = async (orderId, request, currentUser) => {
     return await order.save();
 };
 
-const confirmDelivery = async (req, res) => {
-    const orderId = req.params.id;
-    const description = req.body.description?.toString().trim() || '';
-    const required_note = req.body.requiredNote || null;
+const confirmDelivery = async (orderId, request, currentUser) => {
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate(['delivery', 'paymentInformation']);
     if (!order) {
         throw new ItemNotFoundError('Đơn hàng không tồn tại!');
@@ -598,7 +595,7 @@ const confirmDelivery = async (req, res) => {
             shop_id: Number(process.env.GHN_SHOP_ID),
             payment_type_id: 1,
             note: order.delivery.note || '',
-            required_note: required_note || order.delivery.required_note,
+            required_note: request.requiredNote || order.delivery.required_note,
             client_order_code: Math.round(Math.random() * 1000000000).toString(),
             to_name: order.delivery.to_name,
             to_phone: order.delivery.to_phone,
@@ -622,7 +619,6 @@ const confirmDelivery = async (req, res) => {
             return response.data.data;
         })
         .catch((error) => {
-            res.status(error.response.data.code || 502);
             throw new InternalServerError(error.response.data.message || error.message || null);
         });
     order.delivery.start_date = new Date();
@@ -632,13 +628,12 @@ const confirmDelivery = async (req, res) => {
     // order.delivery.statusHistory = deliveryInfo.log || order.delivery.statusHistory;
     order.statusHistory.push({
         status: 'delivering',
-        description: description,
-        updateBy: req.user._id,
+        description: request.description,
+        updateBy: currentUser._id,
     });
     order.status = 'delivering';
     await order.delivery.save();
-    const updateOrder = await (await order.save()).populate(['delivery', 'paymentInformation']);
-    res.json({ message: 'Đơn giao hàng đã đặt thành công', data: { updateOrder } });
+    return await (await order.save()).populate(['delivery', 'paymentInformation']);
 };
 
 const confirmDelivered = async (req, res) => {

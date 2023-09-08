@@ -114,8 +114,17 @@ OrderController.patch(
     validate.validateOrderId,
     protect,
     auth('staff', 'admin'),
-    asyncHandler(OrderService.confirmDelivery),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const orderId = req.params.id;
+        const placeShipmentRequest = {
+            description: req.body.description?.toString().trim() || '',
+            requiredNote: req.body.requiredNote || null,
+        };
+        res.json(await OrderService.confirmDelivery(orderId, placeShipmentRequest, req.user));
+    }),
 );
+
 OrderController.patch(
     '/:id/delivered',
     validate.validateOrderId,
