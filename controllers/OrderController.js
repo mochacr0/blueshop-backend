@@ -130,8 +130,16 @@ OrderController.patch(
     validate.validateOrderId,
     protect,
     auth('staff', 'admin'),
-    asyncHandler(OrderService.confirmDelivered),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const orderId = req.params.id || '';
+        const confirmDeliveredRequest = {
+            description: req.body.description?.toString()?.trim() || '',
+        };
+        res.json(await OrderService.confirmDelivered(orderId, confirmDeliveredRequest, req.user));
+    }),
 );
+
 OrderController.patch(
     '/:id/received',
     validate.validateOrderId,

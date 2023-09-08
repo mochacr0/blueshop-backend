@@ -636,15 +636,7 @@ const confirmDelivery = async (orderId, request, currentUser) => {
     return await (await order.save()).populate(['delivery', 'paymentInformation']);
 };
 
-const confirmDelivered = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const orderId = req.params.id || '';
-    const description = req.body.description?.toString()?.trim() || '';
+const confirmDelivered = async (orderId, request, currentUser) => {
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate(['delivery', 'paymentInformation']);
     if (!order) {
         throw new ItemNotFoundError('Đơn hàng không tồn tại!');
@@ -666,11 +658,10 @@ const confirmDelivered = async (req, res) => {
     order.delivery.statusHistory.push({ status: 'delivered', updated_date: new Date() });
     order.delivery.status = 'delivered';
     order.delivery.finish_date = new Date();
-    order.statusHistory.push({ status: 'delivered', description: description, updateBy: req.user._id });
+    order.statusHistory.push({ status: 'delivered', description: request.description, updateBy: currentUser._id });
     order.status = 'delivered';
     await order.delivery.save();
-    const updateOrder = await order.save();
-    res.json({ message: 'Xác nhận đã giao hàng thành công', data: { updateOrder } });
+    return await order.save();
 };
 
 const confirmReceived = async (req, res) => {
