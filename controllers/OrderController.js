@@ -148,25 +148,23 @@ OrderController.patch(
     asyncHandler(async (req, res) => {
         validateRequest(req);
         const orderId = req.params.id || '';
-        const confirmDeliveredRequest = {
+        const confirmReceiveddRequest = {
             description: req.body.description?.toString()?.trim() || '',
         };
-        res.json(await OrderService.confirmReceived(orderId, confirmDeliveredRequest, req.user));
+        res.json(await OrderService.confirmReceived(orderId, confirmReceiveddRequest, req.user));
     }),
 );
-OrderController.patch(
-    '/:id/payment',
-    validate.validateOrderId,
-    protect,
-    auth('user'),
-    asyncHandler(OrderService.userPaymentOrder),
-);
+
 OrderController.patch(
     '/:id/confirm-payment',
     validate.validateOrderId,
     protect,
     auth('staff', 'admin'),
-    asyncHandler(OrderService.adminPaymentOrder),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const orderId = req.params.id || null;
+        res.json(await OrderService.adminPaymentOrder(orderId, req.user));
+    }),
 );
 OrderController.patch('/:id/cancel', validate.validateOrderId, protect, asyncHandler(OrderService.cancelOrder));
 

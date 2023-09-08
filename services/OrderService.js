@@ -655,11 +655,13 @@ const confirmDelivered = async (orderId, request, currentUser) => {
     }
     order.paymentInformation.paid = true;
     order.paymentInformation.paidAt = new Date();
+    order.paymentInformation.status = { state: 'paid', description: 'Đã thanh toán' };
     order.delivery.statusHistory.push({ status: 'delivered', updated_date: new Date() });
     order.delivery.status = 'delivered';
     order.delivery.finish_date = new Date();
     order.statusHistory.push({ status: 'delivered', description: request.description, updateBy: currentUser._id });
     order.status = 'delivered';
+    await order.paymentInformation.save();
     await order.delivery.save();
     return await order.save();
 };
@@ -885,14 +887,7 @@ const refundTrans = async (req, res) => {
         });
 };
 
-const adminPaymentOrder = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const orderId = req.params.id;
+const adminPaymentOrder = async (orderId, currentUser) => {
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate('paymentInformation');
     if (!order) {
         throw new ItemNotFoundError('Đơn hàng không tồn tại!');
@@ -906,48 +901,42 @@ const adminPaymentOrder = async (req, res) => {
         readConcern: { level: 'local' },
         writeConcern: { w: 'majority' },
     };
-
-    try {
-        await session.withTransaction(async () => {
-            order.paymentInformation.paid = true;
-            order.paymentInformation.paidAt = new Date();
-            order.statusHistory.push({
-                status: 'paid',
-                updateBy: req.user._id,
-            });
-            if (order.delivery.deliveryCode && order.delivery?.deliveryCode.trim() != '') {
-                {
-                    const config = {
-                        data: JSON.stringify({
-                            order_code: order.delivery.deliveryCode,
-                            cod_amount: 0,
-                        }),
-                    };
-                    await GHN_Request.get('/v2/shipping-order/updateCOD', config)
-                        .then(async (response) => {
-                            order.delivery.cod_amount = cod_amount;
-                            await order.delivery.save({ session });
-                        })
-                        .catch((error) => {
-                            res.status(error.response.data.code || 500);
-                            throw new InternalServerError(
-                                error.response.data.message.code_message_value ||
-                                    error.response.data.message ||
-                                    error.message ||
-                                    '',
-                            );
-                        });
-                }
+    let deliveredOrder;
+    await session.withTransaction(async () => {
+        order.paymentInformation.paid = true;
+        order.paymentInformation.paidAt = new Date();
+        order.statusHistory.push({
+            status: 'paid',
+            updateBy: currentUser._id,
+        });
+        if (order.delivery.deliveryCode && order.delivery?.deliveryCode.trim() != '') {
+            {
+                const config = {
+                    data: JSON.stringify({
+                        order_code: order.delivery.deliveryCode,
+                        cod_amount: 0,
+                    }),
+                };
+                await GHN_Request.get('/v2/shipping-order/updateCOD', config)
+                    .then(async (response) => {
+                        order.delivery.cod_amount = cod_amount;
+                        await order.delivery.save({ session });
+                    })
+                    .catch((error) => {
+                        throw new InternalServerError(
+                            error.response.data.message.code_message_value ||
+                                error.response.data.message ||
+                                error.message ||
+                                '',
+                        );
+                    });
             }
-            await order.paymentInformation.save({ session });
-            const updateOrder = await (await order.save({ session })).populate(['delivery', 'paymentInformation']);
-            res.json({ message: 'Xác nhận thanh toán đơn hàng thành công', data: { updateOrder } });
-        }, transactionOptions);
-    } catch (error) {
-        next(error);
-    } finally {
-        session.endSession();
-    }
+        }
+        await order.paymentInformation.save({ session });
+        deliveredOrder = await (await order.save({ session })).populate(['delivery', 'paymentInformation']);
+    }, transactionOptions);
+    session.endSession();
+    return deliveredOrder;
 };
 
 const cancelOrder = async (req, res, next) => {
