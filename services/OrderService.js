@@ -664,15 +664,7 @@ const confirmDelivered = async (orderId, request, currentUser) => {
     return await order.save();
 };
 
-const confirmReceived = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const orderId = req.params.id;
-    const description = req.body.description?.toString()?.trim() || '';
+const confirmReceived = async (orderId, request, currentUser) => {
     const order = await Order.findOne({ _id: orderId, disabled: false });
     if (!order) {
         throw new ItemNotFoundError('Đơn hàng không tồn tại!');
@@ -689,14 +681,13 @@ const confirmReceived = async (req, res) => {
         default:
             break;
     }
-    order.statusHistory.push({ status: 'completed', description: description, updateBy: req.user._id });
+    order.statusHistory.push({ status: 'completed', description: request.description, updateBy: currentUser._id });
     order.status = 'completed';
     order.orderItems = order.orderItems.map((orderItem) => {
         orderItem.isAbleToReview = true;
         return orderItem;
     });
-    const updateOrder = await order.save();
-    res.json({ message: 'Xác nhận đã nhận hàng thành công', data: { updateOrder } });
+    return await order.save();
 };
 
 const validateIpnSignature = (order, ipnRequest) => {

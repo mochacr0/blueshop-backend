@@ -145,7 +145,14 @@ OrderController.patch(
     validate.validateOrderId,
     protect,
     auth('user'),
-    asyncHandler(OrderService.confirmReceived),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const orderId = req.params.id || '';
+        const confirmDeliveredRequest = {
+            description: req.body.description?.toString()?.trim() || '',
+        };
+        res.json(await OrderService.confirmReceived(orderId, confirmDeliveredRequest, req.user));
+    }),
 );
 OrderController.patch(
     '/:id/payment',
