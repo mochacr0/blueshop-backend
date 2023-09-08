@@ -1,3 +1,5 @@
+import { getClientUrl } from '../../utils/urlUtils';
+
 const activationMail = (mailTo, emailVerificationToken, name) =>
     `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -335,7 +337,7 @@ const activationMail = (mailTo, emailVerificationToken, name) =>
                         valign="top"
                       >
                         <a
-                          href="${process.env.CLIENT_PAGE_URL}/register/confirm?emailVerificationToken=${emailVerificationToken}"
+                          href="${getClientUrl()}/register/confirm?emailVerificationToken=${emailVerificationToken}"
                           class="btn-primary"
                           itemprop="url"
                           style="
@@ -486,7 +488,7 @@ const activationMail = (mailTo, emailVerificationToken, name) =>
                   >
                     Đây là email tự động được gửi từ BlueShop
                     <a
-                      href="${process.env.CLIENT_PAGE_URL}"
+                      href="${getClientUrl()}"
                       style="
                         font-family: 'Helvetica Neue', Helvetica, Arial,
                           sans-serif;

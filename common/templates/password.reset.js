@@ -1,3 +1,5 @@
+import { getClientUrl } from '../../utils/urlUtils.js';
+
 const passwordResetEmail = (mailTo, resetUrl, name) =>
     `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -417,7 +419,7 @@ const passwordResetEmail = (mailTo, resetUrl, name) =>
 					>
 					Đây là email tự động được gửi từ
 					<a
-						href="${process.env.CLIENT_PAGE_URL}"
+						href="${getClientUrl()}"
 						style="
 						font-family: 'Helvetica Neue', Helvetica, Arial,
 							sans-serif;
@@ -439,7 +441,7 @@ const passwordResetEmail = (mailTo, resetUrl, name) =>
 		</tr>
 	</table>
 	</body>
-</html>	
+</html>
 `;
 
 export default passwordResetEmail;

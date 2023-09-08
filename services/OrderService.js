@@ -445,7 +445,7 @@ const createOrder = async (request, currentUser) => {
         if (isMomoPaymentMethods(newPaymentInformation.paymentMethod)) {
             //Create payment information with momo
             const amount = Number(orderInfor.totalPayment).toFixed();
-            // const redirectUrl = `${process.env.CLIENT_PAGE_URL}/order/${orderInfor._id}/waiting-payment`;
+            // const redirectUrl = `${getClientUrl()}/order/${orderInfor._id}/waiting-payment`;
             // const ipnUrl = `${process.env.API_URL}/api/v1/orders/${orderInfor._id}/payment-notification`;
             const ipnUrl = `http://localhost:5000/api/v1/orders/${orderInfor._id}/payment-notification`;
             const redirectUrl = ipnUrl;

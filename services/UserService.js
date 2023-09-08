@@ -18,6 +18,7 @@ import {
 } from '../utils/errors.js';
 import generateAuthToken from '../utils/generateToken.js';
 import { sendMail } from '../utils/nodemailler.js';
+import { getClientUrl } from '../utils/urlUtils.js';
 
 dotenv.config();
 
@@ -197,7 +198,7 @@ const forgotPassword = async (email) => {
     await user.save();
 
     // Send reset password email
-    const resetPasswordUrl = `${process.env.CLIENT_PAGE_URL}/reset?resetPasswordToken=${resetPasswordToken}`;
+    const resetPasswordUrl = `${getClientUrl()}/reset?resetPasswordToken=${resetPasswordToken}`;
     const html = passwordResetEmail(email, resetPasswordUrl, user.name);
 
     // Set up message options

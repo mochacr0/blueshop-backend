@@ -6,6 +6,7 @@ import { auth, protect } from '../middleware/auth.middleware.js';
 import validate from '../middleware/validate.middleware.js';
 import UserService from '../services/UserService.js';
 import { validateRequest } from '../utils/validateRequest.js';
+import { getClientUrl } from '../utils/urlUtils.js';
 
 const UserController = express.Router();
 passportGoogleConfig(passport);
@@ -195,7 +196,9 @@ UserController.get(
     (req, res, next) => {
         console.log(req);
         res.redirect(
-            `${process.env.CLIENT_PAGE_URL}?accessToken=${req.user.accessToken}&refreshToken=${req.user.refreshToken}&expiresIn=${req.user.expiresIn}`,
+            `${getClientUrl()}?accessToken=${req.user.accessToken}&refreshToken=${req.user.refreshToken}&expiresIn=${
+                req.user.expiresIn
+            }`,
         );
     },
 );
