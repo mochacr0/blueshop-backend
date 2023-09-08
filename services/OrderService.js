@@ -99,8 +99,6 @@ const getOrders = async (pageParameter) => {
 
 const checkOrderProductList = async (size, orderItems) => {
     const result = {
-        // error: 0,
-        // message: '',
         orderItemIds: [],
         orderedProductList: [],
         totalProductPrice: 0,
@@ -266,16 +264,8 @@ const getAddressName = async (shippingAddress) => {
     // }
 };
 
-const createOrder = async (req, res, next) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const user = await User.findOne({ _id: req.user._id });
-
-    const { shippingAddress, paymentMethod, orderItems, discountCode, note } = req.body;
+const createOrder = async (request, currentUser) => {
+    const user = await User.findOne({ _id: currentUser._id });
 
     const size = {
         height: 0,
@@ -283,28 +273,12 @@ const createOrder = async (req, res, next) => {
         length: 0,
         width: 0,
     };
-    const productCheckResult = await checkOrderProductList(size, orderItems);
-    if (productCheckResult.error) {
-        throw new InvalidDataError(productCheckResult.message);
-    }
 
-    const calculateDeliveryFee = calculateFee(shippingAddress, size, productCheckResult.totalProductPrice);
-    const calculateLeadTime = estimatedDeliveryTime(shippingAddress);
-    const getAddress = getAddressName(shippingAddress);
+    const productCheckResult = await checkOrderProductList(size, request.orderItems);
+    const calculateDeliveryFee = calculateFee(request.shippingAddress, size, productCheckResult.totalProductPrice);
+    const calculateLeadTime = estimatedDeliveryTime(request.shippingAddress);
+    const getAddress = getAddressName(request.shippingAddress);
     const [deliveryFee, leadTime, address] = await Promise.all([calculateDeliveryFee, calculateLeadTime, getAddress]);
-    console.log('delivery fee', deliveryFee);
-    // if (deliveryFee.error) {
-    //     res.status(deliveryFee.status);
-    //     throw new Error(deliveryFee.message);
-    // }
-    // if (leadTime.error) {
-    //     res.status(leadTime.status);
-    //     throw new Error(leadTime.message);
-    // }
-    // if (addressResult.error) {
-    //     res.status(addressResult.status);
-    //     throw new Error(addressResult.message);
-    // }
 
     const session = await mongoose.startSession();
     const transactionOptions = {
@@ -312,316 +286,260 @@ const createOrder = async (req, res, next) => {
         readConcern: { level: 'local' },
         writeConcern: { w: 'majority' },
     };
-
-    try {
-        await session.withTransaction(async () => {
-            // const newOrderItems = await createOrderItems(session, orderItems);
-            const dataOrderItem = [];
-            const createOrderItems = orderItems.map(async (orderItem) => {
-                const orderedVariant = await Variant.findOneAndUpdate(
-                    {
-                        _id: orderItem.variant,
-                        quantity: { $gte: orderItem.quantity },
-                        disabled: false,
-                        deleted: false,
-                    },
-                    { $inc: { quantity: -orderItem.quantity } },
-                    { new: true },
-                )
-                    .session(session)
-                    .lean();
-                if (!orderedVariant) {
-                    await session.abortTransaction();
-                    throw new InvalidDataError(`Sản phẩm có ID "${orderItem.variant}" đã hết hàng`);
-                }
-                const orderedProduct = await Product.findOneAndUpdate(
-                    { _id: orderedVariant.product, disabled: false, deleted: false },
-                    { $inc: { totalSales: +orderItem.quantity, quantity: -orderItem.quantity } },
-                )
-                    .session(session)
-                    .lean();
-                // await Promise.all([orderedVariant, orderedProduct]);
-                if (!orderedProduct) {
-                    await session.abortTransaction();
-                    throw new UnprocessableContentError(`Sản phẩm có ID "${orderItem.variant}" không tồn tại`);
-                }
-
-                const newOrderItem = {
-                    product: orderedProduct._id,
-                    name: orderedProduct.name,
-                    attributes: orderedVariant.attributes,
-                    image: orderedVariant.image || orderedProduct.images[0] || null,
-                    price: orderedVariant.priceSale,
-                    quantity: orderItem.quantity,
-                };
-                if (!newOrderItem.image) {
-                    newOrderItem.image = orderedProduct.images[0] || null;
-                }
-                dataOrderItem.push(newOrderItem);
-            });
-            await Promise.all(createOrderItems);
-            if (dataOrderItem.length < orderItems.length) {
-                await session.abortTransaction();
-                throw new InternalServerError('Xảy ra lỗi khi tạo đơn hàng, vui lòng làm mới trang và đặt hàng lại');
-            }
-            // create order information
-            const orderInfor = new Order({
-                orderItems: dataOrderItem,
-                user: req.user._id,
-                username: req.user.name,
-                totalProductPrice: productCheckResult.totalProductPrice || 0,
-                shippingPrice: deliveryFee,
-                totalDiscount: 0,
-                status: 'placed',
-                statusHistory: { status: 'placed', updateBy: req.user._id },
-            });
-
-            //Check discount code
-            if (discountCode) {
-                const code = String(discountCode) || '';
-                const discountCodeExist = await DiscountCode.findOne({ code: code, disabled: false });
-                if (!discountCodeExist) {
-                    await session.abortTransaction();
-                    throw new UnprocessableContentError('Mã giảm giá không tồn tại');
-                }
-                if (discountCodeExist.startDate > new Date()) {
-                    await session.abortTransaction();
-                    throw new InvalidDataError(`Mã giảm giá có hiệu lực từ ngày ${Date(discountCode.startDate)}`);
-                }
-                if (discountCodeExist.endDate < new Date()) {
-                    await session.abortTransaction();
-                    throw new InvalidDataError('Mã giảm giá đã hết hạn');
-                }
-                if (discountCodeExist.isUsageLimit && discountCodeExist.usageLimit <= discountCodeExist.used) {
-                    await session.abortTransaction();
-                    throw new InvalidDataError('Mã giảm giá đã được sử dụng hết');
-                }
-                if (discountCodeExist.userUseMaximum > 1) {
-                    const countUser = discountCodeExist.usedBy.filter((item) => {
-                        return item.toString() == req.user._id.toString();
-                    });
-                    if (countUser.length >= discountCodeExist.userUseMaximum) {
-                        await session.abortTransaction();
-                        throw new InvalidDataError('Bạn đã hết lượt sử dụng mã giảm giá này');
-                    }
-                } else if (discountCodeExist.usedBy.includes(req.user._id)) {
-                    await session.abortTransaction();
-                    throw new InvalidDataError('Bạn đã hết lượt sử dụng mã giảm giá này');
-                }
-                // Tổng giá sản phẩm nằm trong danh sách được giảm giá của discount code
-                let totalPriceProductDiscounted = 0;
-                if (discountCodeExist.applyFor == 1) {
-                    totalPriceProductDiscounted = productCheckResult.totalProductPrice;
-                } else {
-                    let count = 0;
-                    productCheckResult.orderedProductList.map((item) => {
-                        if (discountCodeExist.applicableProducts.includes(item._id)) {
-                            totalPriceProductDiscounted += item.priceSale * item.quantity;
-                            count++;
-                        }
-                    });
-                    if (count == 0) {
-                        await session.abortTransaction();
-                        throw new InvalidDataError('Mã giảm giá không được áp dụng cho các sản phẩm này');
-                    }
-                }
-                let discount;
-                if (discountCodeExist.discountType == TYPE_DISCOUNT_MONEY) {
-                    if (totalPriceProductDiscounted >= discountCodeExist.discount) {
-                        discount = discountCodeExist.discount;
-                    } else {
-                        discount = totalPriceProductDiscounted;
-                    }
-                } else if (discountCodeExist.discountType == TYPE_DISCOUNT_PERCENT) {
-                    discount = ((totalPriceProductDiscounted * discountCodeExist.discount) / 100).toFixed(3);
-                    if (discount > discountCodeExist.maximumDiscount) {
-                        discount = discountCodeExist.maximumDiscount;
-                    }
-                }
-                discountCodeExist.usedBy.push(req.user._id);
-                discountCodeExist.used++;
-                await discountCodeExist.save({ session });
-
-                orderInfor.totalDiscount = discount;
-            }
-
-            console.log(orderInfor.totalProductPrice);
-            console.log(deliveryFee);
-            console.log(orderInfor.totalDiscount);
-            const totalPayment = orderInfor.totalProductPrice + deliveryFee - orderInfor.totalDiscount;
-            console.log(totalPayment);
-            if (totalPayment >= 0) {
-                orderInfor.totalPayment = totalPayment;
-            } else {
-                orderInfor.totalPayment = 0;
-            }
-            let leadDateTime = new Date(leadTime * 1000);
-
-            if (leadDateTime == 'Invalid Date') {
-                leadDateTime = null;
-            }
-
-            const newShippingInfor = new Delivery({
-                order: orderInfor._id,
-                client: req.user._id,
-                to_name: address.to_name,
-                to_phone: address.to_phone,
-                to_province_name: address.provinceName,
-                to_district_name: address.districtName,
-                to_ward_name: address.wardName,
-                to_province_id: address.to_province_id,
-                to_district_id: address.to_district_id,
-                to_ward_code: address.to_ward_code,
-                to_address: address.to_address,
-                note: note || '',
-                service_id: Number(shippingAddress.service_id),
-                items: orderInfor.orderItems,
-                deliveryFee: deliveryFee,
-                leadTime: leadDateTime,
-                height: size.height,
-                length: size.length,
-                weight: size.weight,
-                width: size.width,
-                insurance_value: orderInfor.totalProductPrice,
-            });
-            const newShipping = await newShippingInfor.save({ session });
-            if (!newShipping) {
-                await session.abortTransaction();
-                throw new InternalServerError('Gặp lỗi khi tạo thông tin giao hàng');
-            }
-            orderInfor.delivery = newShipping._id;
-
-            const newPaymentInformation = new Payment({
-                user: req.user._id,
-                order: orderInfor._id,
-                paymentAmount: orderInfor.totalPayment,
-            });
-            newPaymentInformation.paymentMethod = paymentMethod;
-
-            if (isMomoPaymentMethods(newPaymentInformation.paymentMethod)) {
-                //Create payment information with momo
-                const amount = Number(orderInfor.totalPayment).toFixed();
-                // const redirectUrl = `${process.env.CLIENT_PAGE_URL}/order/${orderInfor._id}/waiting-payment`;
-                // const ipnUrl = `${process.env.API_URL}/api/v1/orders/${orderInfor._id}/payment-notification`;
-                const ipnUrl = `http://localhost:5000/api/v1/orders/${orderInfor._id}/payment-notification`;
-                const redirectUrl = ipnUrl;
-                const requestId = uuidv4();
-                const requestBody = createPaymentBody(
-                    orderInfor._id,
-                    requestId,
-                    PAYMENT_DEFAULT_ORDER_INFO,
-                    amount,
-                    redirectUrl,
-                    ipnUrl,
-                    user.email,
-                    newPaymentInformation.paymentMethod,
-                );
-                const config = {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Content-Length': Buffer.byteLength(requestBody),
-                    },
-                };
-                await momo_Request
-                    .post('/create', requestBody, config)
-                    .then((response) => {
-                        newPaymentInformation.payUrl = response.data.payUrl;
-                        newPaymentInformation.requestId = requestId;
-                    })
-                    .catch(async (error) => {
-                        await session.abortTransaction();
-                        console.log(error.response);
-                        throw new InvalidDataError(error.response?.message || error.message);
-                    });
-            } else if (newPaymentInformation.paymentMethod != PAYMENT_WITH_CASH) {
-                await session.abortTransaction();
-                throw new InvalidDataError('Phương thức thanh toán không hợp lệ');
-            }
-            newPaymentInformation.status = { state: 'initialized', description: 'Chưa thanh toán' };
-            const createOrderPaymentInformation = await newPaymentInformation.save({ session });
-            if (!createOrderPaymentInformation) {
-                await session.abortTransaction();
-                throw new InternalServerError('Gặp lỗi trong quá trình tạo thông tin thanh toán');
-            }
-
-            orderInfor.paymentInformation = createOrderPaymentInformation._id;
-
-            //start cron-job
-            // let scheduledJob = schedule.scheduleJob(
-            //     // `*/${process.env.PAYMENT_EXPIRY_TIME_IN_MINUTE} * * * *`,
-            //     async () => {
-            //         const foundOrder = await Order.findOne({
-            //             _id: orderInfor._id,
-            //         }).populate('paymentInformation');
-            //         if (!foundOrder.paymentInformation.paid) {
-            //             if (
-            //                 foundOrder.status != 'cancelled'
-            //                 // &&
-            //                 // foundOrder.status != 'delivered' &&
-            //                 // foundOrder.status != 'completed'
-            //             ) {
-            //                 foundOrder.status = 'cancelled';
-            //                 foundOrder.statusHistory.push({
-            //                     status: 'cancelled',
-            //                     description: 'Đơn hàng bị hủy do chưa được thanh toán',
-            //                 });
-            //                 await foundOrder.save();
-            //                 console.log(`Đơn hàng "${orderInfor._id}" đã bị hủy `);
-            //             }
-            //         }
-            //         scheduledJob.cancel();
-            //     },
-            // );
-
-            await Cart.findOneAndUpdate(
-                { user: req.user._id },
-                { $pull: { cartItems: { variant: { $in: productCheckResult.orderItemIds } } } },
+    let newOrder;
+    await session.withTransaction(async () => {
+        // const newOrderItems = await createOrderItems(session, orderItems);
+        const dataOrderItem = [];
+        const createOrderItems = request.orderItems.map(async (orderItem) => {
+            const orderedVariant = await Variant.findOneAndUpdate(
+                {
+                    _id: orderItem.variant,
+                    quantity: { $gte: orderItem.quantity },
+                    disabled: false,
+                    deleted: false,
+                },
+                { $inc: { quantity: -orderItem.quantity } },
+                { new: true },
             )
                 .session(session)
                 .lean();
-
-            //set order expiry time
-            let now = new Date();
-            if (isMomoPaymentMethods(newPaymentInformation.paymentMethod)) {
-                now.setMinutes(now.getMinutes() + MAX_MINUTES_WAITING_TO_PAY);
-            } else {
-                now.setDate(now.getDate() + MAX_DAYS_WAITING_FOR_SHOP_CONFIRMATION);
-            }
-            orderInfor.expiredAt = now;
-
-            const newOrder = await (await orderInfor.save({ session })).populate(['delivery', 'paymentInformation']);
-            if (!newOrder) {
+            if (!orderedVariant) {
                 await session.abortTransaction();
-                throw new InternalServerError('Xảy ra lỗi trong quá trình tạo đơn hàng');
+                throw new InvalidDataError(`Sản phẩm có ID "${orderItem.variant}" đã hết hàng`);
+            }
+            const orderedProduct = await Product.findOneAndUpdate(
+                { _id: orderedVariant.product, disabled: false, deleted: false },
+                { $inc: { totalSales: +orderItem.quantity, quantity: -orderItem.quantity } },
+            )
+                .session(session)
+                .lean();
+            // await Promise.all([orderedVariant, orderedProduct]);
+            if (!orderedProduct) {
+                await session.abortTransaction();
+                throw new UnprocessableContentError(`Sản phẩm có ID "${orderItem.variant}" không tồn tại`);
             }
 
-            //schedule job
-            if (isMomoPaymentMethods(newOrder.paymentInformation.paymentMethod)) {
-                TaskService.scheduleCancelUnpaidOrder(newOrder);
-            } else if (newOrder.paymentInformation.paymentMethod == PAYMENT_WITH_CASH) {
-                TaskService.scheduleCancelUncofirmedOrder(newOrder);
+            const newOrderItem = {
+                product: orderedProduct._id,
+                name: orderedProduct.name,
+                attributes: orderedVariant.attributes,
+                image: orderedVariant.image || orderedProduct.images[0] || null,
+                price: orderedVariant.priceSale,
+                quantity: orderItem.quantity,
+            };
+            if (!newOrderItem.image) {
+                newOrderItem.image = orderedProduct.images[0] || null;
             }
+            dataOrderItem.push(newOrderItem);
+        });
+        await Promise.all(createOrderItems);
+        if (dataOrderItem.length < request.orderItems.length) {
+            await session.abortTransaction();
+            throw new InternalServerError('Xảy ra lỗi khi tạo đơn hàng, vui lòng làm mới trang và đặt hàng lại');
+        }
+        // create order information
+        const orderInfor = new Order({
+            orderItems: dataOrderItem,
+            user: currentUser._id,
+            username: currentUser.name,
+            totalProductPrice: productCheckResult.totalProductPrice || 0,
+            shippingPrice: deliveryFee,
+            totalDiscount: 0,
+            status: 'placed',
+            statusHistory: { status: 'placed', updateBy: currentUser._id },
+        });
 
-            await session.commitTransaction();
-            res.json({ message: 'Đặt hàng thành công', data: { newOrder } });
-        }, transactionOptions);
-    } catch (error) {
-        next(error);
-    } finally {
-        session.endSession();
-    }
+        //Check discount code
+        if (request.discountCode) {
+            const code = String(request.discountCode) || '';
+            const discountCodeExist = await DiscountCode.findOne({ code: code, disabled: false });
+            if (!discountCodeExist) {
+                throw new UnprocessableContentError('Mã giảm giá không tồn tại');
+            }
+            if (discountCodeExist.startDate > new Date()) {
+                throw new InvalidDataError(`Mã giảm giá có hiệu lực từ ngày ${Date(discountCodeExist.startDate)}`);
+            }
+            if (discountCodeExist.endDate < new Date()) {
+                throw new InvalidDataError('Mã giảm giá đã hết hạn');
+            }
+            if (discountCodeExist.isUsageLimit && discountCodeExist.usageLimit <= discountCodeExist.used) {
+                throw new InvalidDataError('Mã giảm giá đã được sử dụng hết');
+            }
+            if (discountCodeExist.userUseMaximum > 1) {
+                const countUser = discountCodeExist.usedBy.filter((item) => {
+                    return item.toString() == currentUser._id.toString();
+                });
+                if (countUser.length >= discountCodeExist.userUseMaximum) {
+                    throw new InvalidDataError('Bạn đã hết lượt sử dụng mã giảm giá này');
+                }
+            } else if (discountCodeExist.usedBy.includes(currentUser._id)) {
+                throw new InvalidDataError('Bạn đã hết lượt sử dụng mã giảm giá này');
+            }
+            // Tổng giá sản phẩm nằm trong danh sách được giảm giá của discount code
+            let totalPriceProductDiscounted = 0;
+            if (discountCodeExist.applyFor == 1) {
+                totalPriceProductDiscounted = productCheckResult.totalProductPrice;
+            } else {
+                let count = 0;
+                productCheckResult.orderedProductList.forEach((item) => {
+                    if (discountCodeExist.applicableProducts.includes(item._id)) {
+                        totalPriceProductDiscounted += item.priceSale * item.quantity;
+                        count++;
+                    }
+                });
+                if (count == 0) {
+                    await session.abortTransaction();
+                    throw new InvalidDataError('Mã giảm giá không được áp dụng cho các sản phẩm này');
+                }
+            }
+            let discount;
+            if (discountCodeExist.discountType == TYPE_DISCOUNT_MONEY) {
+                if (totalPriceProductDiscounted >= discountCodeExist.discount) {
+                    discount = discountCodeExist.discount;
+                } else {
+                    discount = totalPriceProductDiscounted;
+                }
+            } else if (discountCodeExist.discountType == TYPE_DISCOUNT_PERCENT) {
+                discount = ((totalPriceProductDiscounted * discountCodeExist.discount) / 100).toFixed(3);
+                if (discount > discountCodeExist.maximumDiscount) {
+                    discount = discountCodeExist.maximumDiscount;
+                }
+            }
+            discountCodeExist.usedBy.push(currentUser._id);
+            discountCodeExist.used++;
+            await discountCodeExist.save({ session });
+
+            orderInfor.totalDiscount = discount;
+        }
+
+        const totalPayment = orderInfor.totalProductPrice + deliveryFee - orderInfor.totalDiscount;
+        if (totalPayment >= 0) {
+            orderInfor.totalPayment = totalPayment;
+        } else {
+            orderInfor.totalPayment = 0;
+        }
+        let leadDateTime = new Date(leadTime * 1000);
+
+        if (leadDateTime == 'Invalid Date') {
+            leadDateTime = null;
+        }
+
+        const newShippingInfor = new Delivery({
+            order: orderInfor._id,
+            client: currentUser._id,
+            to_name: address.to_name,
+            to_phone: address.to_phone,
+            to_province_name: address.provinceName,
+            to_district_name: address.districtName,
+            to_ward_name: address.wardName,
+            to_province_id: address.to_province_id,
+            to_district_id: address.to_district_id,
+            to_ward_code: address.to_ward_code,
+            to_address: address.to_address,
+            note: request.note || '',
+            service_id: Number(request.shippingAddress.service_id),
+            items: orderInfor.orderItems,
+            deliveryFee: deliveryFee,
+            leadTime: leadDateTime,
+            height: size.height,
+            length: size.length,
+            weight: size.weight,
+            width: size.width,
+            insurance_value: orderInfor.totalProductPrice,
+        });
+        const newShipping = await newShippingInfor.save({ session });
+        if (!newShipping) {
+            throw new InternalServerError('Gặp lỗi khi tạo thông tin giao hàng');
+        }
+        orderInfor.delivery = newShipping._id;
+
+        const newPaymentInformation = new Payment({
+            user: currentUser._id,
+            order: orderInfor._id,
+            paymentAmount: orderInfor.totalPayment,
+        });
+        newPaymentInformation.paymentMethod = request.paymentMethod;
+
+        if (isMomoPaymentMethods(newPaymentInformation.paymentMethod)) {
+            //Create payment information with momo
+            const amount = Number(orderInfor.totalPayment).toFixed();
+            // const redirectUrl = `${process.env.CLIENT_PAGE_URL}/order/${orderInfor._id}/waiting-payment`;
+            // const ipnUrl = `${process.env.API_URL}/api/v1/orders/${orderInfor._id}/payment-notification`;
+            const ipnUrl = `http://localhost:5000/api/v1/orders/${orderInfor._id}/payment-notification`;
+            const redirectUrl = ipnUrl;
+            const requestId = uuidv4();
+            const requestBody = createPaymentBody(
+                orderInfor._id,
+                requestId,
+                PAYMENT_DEFAULT_ORDER_INFO,
+                amount,
+                redirectUrl,
+                ipnUrl,
+                user.email,
+                newPaymentInformation.paymentMethod,
+            );
+            const config = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(requestBody),
+                },
+            };
+            await momo_Request
+                .post('/create', requestBody, config)
+                .then((response) => {
+                    newPaymentInformation.payUrl = response.data.payUrl;
+                    newPaymentInformation.requestId = requestId;
+                })
+                .catch(async (error) => {
+                    console.log(error.response);
+                    throw new InvalidDataError(error.response?.message || error.message);
+                });
+        } else if (newPaymentInformation.paymentMethod != PAYMENT_WITH_CASH) {
+            throw new InvalidDataError('Phương thức thanh toán không hợp lệ');
+        }
+        newPaymentInformation.status = { state: 'initialized', description: 'Chưa thanh toán' };
+        const createOrderPaymentInformation = await newPaymentInformation.save({ session });
+        if (!createOrderPaymentInformation) {
+            throw new InternalServerError('Gặp lỗi trong quá trình tạo thông tin thanh toán');
+        }
+
+        orderInfor.paymentInformation = createOrderPaymentInformation._id;
+
+        await Cart.findOneAndUpdate(
+            { user: currentUser._id },
+            { $pull: { cartItems: { variant: { $in: productCheckResult.orderItemIds } } } },
+        )
+            .session(session)
+            .lean();
+
+        //set order expiry time
+        let now = new Date();
+        if (isMomoPaymentMethods(newPaymentInformation.paymentMethod)) {
+            now.setMinutes(now.getMinutes() + MAX_MINUTES_WAITING_TO_PAY);
+        } else {
+            now.setDate(now.getDate() + MAX_DAYS_WAITING_FOR_SHOP_CONFIRMATION);
+        }
+        orderInfor.expiredAt = now;
+
+        newOrder = await (await orderInfor.save({ session })).populate(['delivery', 'paymentInformation']);
+        if (!newOrder) {
+            throw new InternalServerError('Xảy ra lỗi trong quá trình tạo đơn hàng');
+        }
+
+        //schedule job
+        if (isMomoPaymentMethods(newOrder.paymentInformation.paymentMethod)) {
+            TaskService.scheduleCancelUnpaidOrder(newOrder);
+        } else if (newOrder.paymentInformation.paymentMethod == PAYMENT_WITH_CASH) {
+            TaskService.scheduleCancelUncofirmedOrder(newOrder);
+        }
+
+        await session.commitTransaction();
+    }, transactionOptions);
+    return newOrder;
 };
 
 // Update: CONFIRM ORDER
-const confirmOrder = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const orderId = req.params.id || '';
-    const description = String(req.body.description) || '';
+const confirmOrder = async (orderId, request, currentUser) => {
     const order = await Order.findOne({ _id: orderId, disabled: false });
     if (!order) {
         throw new ItemNotFoundError('Đơn hàng không tồn tại!');
@@ -640,20 +558,12 @@ const confirmOrder = async (req, res) => {
         default:
             break;
     }
-    order.statusHistory.push({ status: 'confirm', description: description, updateBy: req.user._id });
+    order.statusHistory.push({ status: 'confirm', description: request.description, updateBy: currentUser._id });
     order.status = 'confirm';
-
-    const updateOrder = await order.save();
-    res.json({ message: 'Xác nhận đơn hàng thành công', data: { updateOrder } });
+    return await order.save();
 };
 
 const confirmDelivery = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
     const orderId = req.params.id;
     const description = req.body.description?.toString().trim() || '';
     const required_note = req.body.requiredNote || null;
@@ -803,8 +713,8 @@ const confirmReceived = async (req, res) => {
     res.json({ message: 'Xác nhận đã nhận hàng thành công', data: { updateOrder } });
 };
 
-const validateIpnSignature = (order, req, res) => {
-    const { resultCode, message, responseTime, extraData, signature, orderType, payType, transId } = req.query;
+const validateIpnSignature = (order, ipnRequest) => {
+    const { resultCode, message, responseTime, extraData, signature, orderType, payType, transId } = ipnRequest;
     const orderPayment = order.paymentInformation;
     const rawSignature =
         'accessKey=' +
@@ -842,20 +752,12 @@ const validateIpnSignature = (order, req, res) => {
     }
 };
 
-const orderPaymentNotification = async (req, res, next) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-
+const orderPaymentNotification = async (ipnRequest) => {
     //validate
-    const orderId = req.query.orderId;
-    if (!orderId) {
+    if (!ipnRequest.orderId) {
         throw new InvalidDataError('Mã đơn hàng là giá trị bắt buộc');
     }
-    const order = await Order.findOne({ _id: orderId, disabled: false }).populate('paymentInformation');
+    const order = await Order.findOne({ _id: ipnRequest.orderId, disabled: false }).populate('paymentInformation');
     if (!order) {
         throw new UnprocessableContentError('Đơn hàng không tồn tại!');
     }
@@ -866,17 +768,17 @@ const orderPaymentNotification = async (req, res, next) => {
         throw new InvalidDataError('Đơn hàng đã được thanh toán');
     }
     if (
-        order.paymentInformation?.requestId?.toString() != req.query.requestId?.toString() ||
-        Number(order.paymentInformation.paymentAmount) != Number(req.query.amount)
+        order.paymentInformation?.requestId?.toString() != ipnRequest.requestId?.toString() ||
+        Number(order.paymentInformation.paymentAmount) != Number(ipnRequest.amount)
     ) {
         throw new InvalidDataError('Thông tin xác nhận thanh toán không hợp lệ');
     }
 
-    validateIpnSignature(order, req, res);
+    validateIpnSignature(order, ipnRequest);
 
-    if (req.query.resultCode != 0 && order.status == 'placed') {
-        const message = statusResponseFalse[req.query.resultCode] || statusResponseFalse[99];
-
+    if (ipnRequest.resultCode != 0 && order.status == 'placed') {
+        const message = statusResponseFalse[ipnRequest.resultCode] || statusResponseFalse[99];
+        console.error(message);
         //cancle order
         const session = await mongoose.startSession();
         const transactionOptions = {
@@ -884,38 +786,33 @@ const orderPaymentNotification = async (req, res, next) => {
             readConcern: { level: 'local' },
             writeConcern: { w: 'majority' },
         };
-        try {
-            await session.withTransaction(async () => {
-                await rollbackProductQuantites(order, session);
-                await cancelDelivery(order, session);
-                //update order status
-                order.status = 'cancelled';
-                order.statusHistory.push({ status: 'cancelled', description: 'Từ chối thanh toán' });
-                order.expiredAt = null;
-                const cancelledOrder = await order.save();
-                if (!cancelledOrder) {
-                    await session.abortTransaction();
-                    throw new InternalServerError('Gặp lỗi khi hủy đơn hàng');
-                }
-                console.error('Thanh toán thất bại, người dùng từ chối thanh toán');
-            }, transactionOptions);
-        } catch (error) {
-            next(error);
-        } finally {
-            await session.endSession();
-            return;
-        }
+        await session.withTransaction(async () => {
+            await rollbackProductQuantites(order, session);
+            await cancelDelivery(order, session);
+            //update order status
+            order.status = 'cancelled';
+            order.statusHistory.push({ status: 'cancelled', description: 'Từ chối thanh toán' });
+            order.expiredAt = null;
+            const cancelledOrder = await order.save();
+            if (!cancelledOrder) {
+                throw new InternalServerError('Gặp lỗi khi hủy đơn hàng');
+            }
+            console.error('Thanh toán thất bại, người dùng từ chối thanh toán');
+        }, transactionOptions);
+        await session.endSession();
+        return null;
     }
     if (order.status != 'cancelled') {
         order.statusHistory.push({ status: 'paid', updateBy: order.user });
     }
-    order.paymentInformation.transId = req.query.transId;
+    order.paymentInformation.transId = ipnRequest.transId;
     order.paymentInformation.paid = true;
     order.paymentInformation.paidAt = new Date();
     order.paymentInformation.status = { state: 'paid', description: 'Đã thanh toán' };
     await order.paymentInformation.save();
     order.expiredAt = null;
     await order.save();
+    return null;
 };
 
 const getOrderPaymentStatus = async (req, res) => {

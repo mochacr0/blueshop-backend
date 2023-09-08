@@ -1,8 +1,8 @@
 import express from 'express';
 import asyncHandler from 'express-async-handler';
 import { auth, protect } from '../middleware/auth.middleware.js';
-import OrderService from '../services/OrderService.js';
 import validate from '../middleware/validate.middleware.js';
+import OrderService from '../services/OrderService.js';
 import { validateRequest } from '../utils/validateRequest.js';
 
 const OrderController = express.Router();
@@ -53,25 +53,62 @@ OrderController.get(
     }),
 );
 
-// orderRouter.post('/', validate.placeOrder, protect, auth('user'), asyncHandler(orderController.placeOrder));
-OrderController.post('/', validate.createOrder, protect, auth('user'), asyncHandler(OrderService.createOrder));
-// orderRouter.post(
-//     '/:id/payment-notification',
-//     validate.validateOrderId,
-//     asyncHandler(orderController.orderPaymentNotification),
-// );
+OrderController.post(
+    '/',
+    validate.createOrder,
+    protect,
+    auth('user'),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const createOrderRequest = {
+            shippingAddress: req.body.shippingAddress,
+            paymentMethod: req.body.paymentMethod,
+            orderItems: req.body.orderItems,
+            discountCode: req.body.discountCode,
+            note: req.body.note,
+        };
+        res.json(await OrderService.createOrder(createOrderRequest, req.user));
+    }),
+);
+
 OrderController.get(
     '/:id/payment-notification',
     validate.validateOrderId,
-    asyncHandler(OrderService.orderPaymentNotification),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const ipnRequest = {
+            orderId: req.query.orderId,
+            requestId: req.query.requestId,
+            amount: req.query.amount,
+            transId: req.query.transId,
+            resultCode: req.query.resultCode,
+            message: req.query.message,
+            responseTime: req.query.responseTime,
+            extraData: req.query.extraData,
+            signature: req.query.signature,
+            orderType: req.query.orderType,
+            payType: req.query.payType,
+        };
+        res.status(204);
+        res.json(await OrderService.orderPaymentNotification(ipnRequest));
+    }),
 );
+
 OrderController.patch(
     '/:id/confirm',
     validate.validateOrderId,
     protect,
     auth('staff', 'admin'),
-    asyncHandler(OrderService.confirmOrder),
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const orderId = req.params.id || '';
+        const request = {
+            description: String(req.body.description) || '',
+        };
+        res.json(await OrderService.confirmOrder(orderId, request, req.user));
+    }),
 );
+
 OrderController.patch(
     '/:id/delivery',
     validate.validateOrderId,
