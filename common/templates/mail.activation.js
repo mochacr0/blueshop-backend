@@ -1,4 +1,4 @@
-import { getClientUrl } from '../../utils/urlUtils';
+import { getClientUrl } from '../../utils/urlUtils.js';
 
 const activationMail = (mailTo, emailVerificationToken, name) =>
     `
