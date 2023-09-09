@@ -59,6 +59,7 @@ OrderController.post(
         validateRequest(req);
         const hostUrl = getHostUrl(req);
         console.log('HOST URL: ', hostUrl);
+        console.log(hostUrl);
         const createOrderRequest = {
             shippingAddress: req.body.shippingAddress,
             paymentMethod: req.body.paymentMethod,

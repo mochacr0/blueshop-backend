@@ -7,7 +7,8 @@ const getClientUrl = () => {
 };
 
 const getHostUrl = (req) => {
-    return new URL(`${req.protocol}://${req.get('host')}`);
+    const urlObject = new URL(`${req.protocol}://${req.get('host')}`);
+    return urlObject.origin;
 };
 
 export { getClientUrl, getHostUrl };
