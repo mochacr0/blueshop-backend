@@ -58,6 +58,7 @@ OrderController.post(
     asyncHandler(async (req, res) => {
         validateRequest(req);
         const hostUrl = getHostUrl(req);
+        console.log('HOST URL: ', hostUrl);
         const createOrderRequest = {
             shippingAddress: req.body.shippingAddress,
             paymentMethod: req.body.paymentMethod,
@@ -87,8 +88,9 @@ OrderController.post(
             orderType: req.body.orderType,
             payType: req.body.payType,
         };
+        await OrderService.orderPaymentNotification(ipnRequest);
         res.status(204);
-        res.json(await OrderService.orderPaymentNotification(ipnRequest));
+        res.json(null);
     }),
 );
 
