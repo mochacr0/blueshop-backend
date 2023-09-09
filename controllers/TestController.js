@@ -27,6 +27,11 @@ const multerUpload = multer({}); */
 
 const TestController = express.Router();
 
+TestController.get('/test', (req, res) => {
+    const url = new URL(`${req.protocol}://${req.get('host')}`);
+    res.json(url);
+});
+
 TestController.post(
     '/natural',
     asyncHandler(async (req, res) => {

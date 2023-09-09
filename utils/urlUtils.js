@@ -6,4 +6,8 @@ const getClientUrl = () => {
     }
 };
 
-export { getClientUrl };
+const getHostUrl = () => {
+    return new URL(`${req.protocol}://${req.get('host')}`);
+};
+
+export { getClientUrl, getHostUrl };

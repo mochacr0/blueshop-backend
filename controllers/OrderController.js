@@ -73,17 +73,17 @@ OrderController.get(
     asyncHandler(async (req, res) => {
         validateRequest(req);
         const ipnRequest = {
-            orderId: req.query.orderId,
-            requestId: req.query.requestId,
-            amount: req.query.amount,
-            transId: req.query.transId,
-            resultCode: req.query.resultCode,
-            message: req.query.message,
-            responseTime: req.query.responseTime,
-            extraData: req.query.extraData,
-            signature: req.query.signature,
-            orderType: req.query.orderType,
-            payType: req.query.payType,
+            orderId: req.body.orderId,
+            requestId: req.body.requestId,
+            amount: req.body.amount,
+            transId: req.body.transId,
+            resultCode: req.body.resultCode,
+            message: req.body.message,
+            responseTime: req.body.responseTime,
+            extraData: req.body.extraData,
+            signature: req.body.signature,
+            orderType: req.body.orderType,
+            payType: req.body.payType,
         };
         res.status(204);
         res.json(await OrderService.orderPaymentNotification(ipnRequest));
