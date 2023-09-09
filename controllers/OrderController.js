@@ -69,7 +69,7 @@ OrderController.post(
     }),
 );
 
-OrderController.get(
+OrderController.post(
     '/:id/payment-notification',
     validate.validateOrderId,
     asyncHandler(async (req, res) => {
