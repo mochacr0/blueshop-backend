@@ -7,8 +7,7 @@ const getClientUrl = () => {
 };
 
 const getHostUrl = (req) => {
-    // const hostUrl = `https://${req.get('host')}`;
-    const hostUrl = req.get('host');
+    const hostUrl = `https://${req.get('host')}`;
     return hostUrl;
     // console.log('urlObject', urlObject);
     // console.log('protocol', req.protocol);
