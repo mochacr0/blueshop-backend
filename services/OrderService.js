@@ -29,7 +29,7 @@ import {
 } from '../utils/paymentConstants.js';
 import { GHN_Request, momo_Request } from '../utils/request.js';
 import { orderQueryParams, validateConstants } from '../utils/searchConstants.js';
-import { getHostUrl } from '../utils/urlUtils.js';
+import { getClientUrl } from '../utils/urlUtils.js';
 
 //CONSTANT
 const TYPE_DISCOUNT_MONEY = 1;
@@ -249,7 +249,7 @@ const getAddressName = async (shippingAddress) => {
     // }
 };
 
-const createOrder = async (request, currentUser) => {
+const createOrder = async (request, hostUrl, currentUser) => {
     const user = await User.findOne({ _id: currentUser._id });
 
     const size = {
@@ -446,7 +446,7 @@ const createOrder = async (request, currentUser) => {
         if (isMomoPaymentMethods(newPaymentInformation.paymentMethod)) {
             //Create payment information with momo
             const amount = Number(orderInfor.totalPayment).toFixed();
-            const ipnUrl = `${getHostUrl()}api/v1/orders/${orderInfor._id}/payment-notification`;
+            const ipnUrl = `${hostUrl}api/v1/orders/${orderInfor._id}/payment-notification`;
             const redirectUrl = `${getClientUrl()}/order/${orderInfor._id}/waiting-payment`;
             // const ipnUrl = `http://localhost:5000/api/v1/orders/${orderInfor._id}/payment-notification`;
             // const redirectUrl = ipnUrl;

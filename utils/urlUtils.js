@@ -6,7 +6,7 @@ const getClientUrl = () => {
     }
 };
 
-const getHostUrl = () => {
+const getHostUrl = (req) => {
     return new URL(`${req.protocol}://${req.get('host')}`);
 };
 

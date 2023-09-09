@@ -4,6 +4,7 @@ import { auth, protect } from '../middleware/auth.middleware.js';
 import validate from '../middleware/validate.middleware.js';
 import OrderService from '../services/OrderService.js';
 import { validateRequest } from '../utils/validateRequest.js';
+import { getHostUrl } from '../utils/urlUtils.js';
 
 const OrderController = express.Router();
 
@@ -56,6 +57,7 @@ OrderController.post(
     auth('user'),
     asyncHandler(async (req, res) => {
         validateRequest(req);
+        const hostUrl = getHostUrl(req);
         const createOrderRequest = {
             shippingAddress: req.body.shippingAddress,
             paymentMethod: req.body.paymentMethod,
@@ -63,7 +65,7 @@ OrderController.post(
             discountCode: req.body.discountCode,
             note: req.body.note,
         };
-        res.json(await OrderService.createOrder(createOrderRequest, req.user));
+        res.json(await OrderService.createOrder(createOrderRequest, hostUrl, req.user));
     }),
 );
 
