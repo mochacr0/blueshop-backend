@@ -7,10 +7,11 @@ const getClientUrl = () => {
 };
 
 const getHostUrl = (req) => {
-    const urlObject = new URL(`${req.get('host')}`);
-    console.log('urlObject', urlObject);
-    console.log('protocol', req.protocol);
-    return urlObject.origin;
+    const hostUrl = `https://${req.get('host')}`;
+    return hostUrl;
+    // console.log('urlObject', urlObject);
+    // console.log('protocol', req.protocol);
+    // return urlObject.origin; //http://localhost:5000
 };
 
 export { getClientUrl, getHostUrl };
