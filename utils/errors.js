@@ -35,6 +35,12 @@ class ItemNotFoundError extends InternalServerError {
     }
 }
 
+class PathNotFoundError extends InternalServerError {
+    constructor(message) {
+        super(message, 404);
+    }
+}
+
 class UnavailableServiceError extends InternalServerError {
     constructor(message) {
         super(message, 503);
@@ -53,6 +59,7 @@ export {
     UnauthorizedError,
     UnauthenticatedError,
     ItemNotFoundError,
+    PathNotFoundError,
     UnprocessableContentError,
     UnavailableServiceError,
 };
