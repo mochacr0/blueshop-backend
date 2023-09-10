@@ -96,30 +96,31 @@ const scheduleCancelExpiredOrders =
     //execute jobs every 1 minutes
     schedule.scheduleJob('*/1 * * * *', async () => {
         console.log('Runing scheduleCancelExpiredOrders');
-        const unpaidOrders = await Order.aggregate([
-            { $match: { $and: [{ status: 'placed' }, { expiredAt: { $lte: new Date() } }] } },
-            { $lookup: { from: 'payments', localField: 'paymentInformation', foreignField: '_id', as: 'paymentInfo' } },
-            { $unwind: '$paymentInfo' },
-            {
-                $match: {
-                    $and: [
-                        { 'paymentInfo.paid': false },
-                        {
-                            'paymentInfo.paymentMethod': {
-                                $in: [
-                                    PAYMENT_WITH_MOMO.toString(),
-                                    PAYMENT_WITH_ATM.toString(),
-                                    PAYMENT_WITH_CREDIT_CARD.toString(),
-                                ],
-                            },
-                        },
-                    ],
-                },
-            },
-        ]).exec();
-        const cancelTasks = unpaidOrders.map(async (order) => {
+        // const unpaidOrders = await Order.aggregate([
+        //     { $match: { $and: [{ status: 'placed' }, { expiredAt: { $lte: new Date() } }] } },
+        //     { $lookup: { from: 'payments', localField: 'paymentInformation', foreignField: '_id', as: 'paymentInfo' } },
+        //     { $unwind: '$paymentInfo' },
+        //     {
+        //         $match: {
+        //             $and: [
+        //                 { 'paymentInfo.paid': false },
+        //                 {
+        //                     'paymentInfo.paymentMethod': {
+        //                         $in: [
+        //                             PAYMENT_WITH_MOMO.toString(),
+        //                             PAYMENT_WITH_ATM.toString(),
+        //                             PAYMENT_WITH_CREDIT_CARD.toString(),
+        //                         ],
+        //                     },
+        //                 },
+        //             ],
+        //         },
+        //     },
+        // ]).exec();
+        const expiredOrders = await Order.find({ status: 'placed', expiredAt: { $lte: new Date() } });
+        const cancelTasks = expiredOrders.map(async (order) => {
             try {
-                await OrderService.cancelUnpaidOrder(order);
+                await OrderService.cancelExpiredOrder(order);
             } catch (error) {
                 console.error(`Hủy đơn hàng ${order._id} thất bại. Lỗi: ${error.message}`);
             }

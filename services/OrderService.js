@@ -773,7 +773,8 @@ const orderPaymentNotification = async (ipnRequest) => {
     const now = new Date();
     now.setMinutes(now.getMinutes() + MAX_DAYS_WAITING_FOR_SHOP_CONFIRMATION);
     order.expiredAt = now;
-    await order.save();
+    const savedOrder = await order.save();
+    TaskService.scheduleCancelExpiredOrder(savedOrder);
     return null;
 };
 
@@ -1068,7 +1069,7 @@ const cancelExpiredOrder = async (order) => {
         expiredOrder.status = 'cancelled';
         expiredOrder.statusHistory.push({ status: 'cancelled', description: cancelReason });
         const cancelledOrder = await expiredOrder.save();
-        await OrderService.refundOrderInCancel(cancelledOrder, session);
+        await OrderService.refundOrderInCancel(cancelledOrder.paymentInformation, session);
         console.log(`Đơn hàng ${expiredOrder._id} đã bị hủy vì ${cancelReason.toLowerCase()}`);
     }, transactionOptions);
     await session.endSession();
