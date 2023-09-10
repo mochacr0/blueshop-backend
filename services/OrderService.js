@@ -514,7 +514,7 @@ const createOrder = async (request, hostUrl, currentUser) => {
         }
 
         //schedule job
-        // TaskService.scheduleCancelExpiredOrder(newOrder);
+        TaskService.scheduleCancelExpiredOrder(newOrder);
 
         await session.commitTransaction();
     }, transactionOptions);
