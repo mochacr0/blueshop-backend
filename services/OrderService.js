@@ -303,6 +303,7 @@ const createOrder = async (request, hostUrl, currentUser) => {
             }
 
             const newOrderItem = {
+                variant: orderItem.variant,
                 product: orderedProduct._id,
                 name: orderedProduct.name,
                 attributes: orderedVariant.attributes,
@@ -442,8 +443,6 @@ const createOrder = async (request, hostUrl, currentUser) => {
             paymentAmount: orderInfor.totalPayment,
         });
         newPaymentInformation.paymentMethod = request.paymentMethod;
-
-        console.log(newPaymentInformation.paymentMethod);
 
         if (isMomoPaymentMethods(newPaymentInformation.paymentMethod)) {
             //Create payment information with momo
@@ -991,22 +990,60 @@ const cancelOrder = async (req, res, next) => {
 };
 
 const rollbackProductQuantites = async (order, session) => {
-    const updateOrderItems = order.orderItems.map(async (orderItem) => {
-        await Product.findOneAndUpdate(
-            { _id: orderItem.product },
-            { $inc: { totalSales: -orderItem.quantity, quantity: +orderItem.quantity } },
-        )
-            .session(session)
-            .lean();
-        await Variant.findOneAndUpdate(
-            { product: orderItem.product._id, attributes: orderItem.attributes },
-            { $inc: { quantity: +orderItem.quantity } },
-            { new: true },
-        )
-            .session(session)
-            .lean();
-    });
-    await Promise.all(updateOrderItems);
+    const variantQuantitiesUpdate = {};
+    const productTotalSalesUpdate = {};
+    for (const orderItem of order.orderItems) {
+        const variantId = orderItem.variant;
+        const quantity = orderItem.quantity;
+        if (!variantQuantitiesUpdate[variantId]) {
+            variantQuantitiesUpdate[variantId] = quantity;
+        } else {
+            variantQuantitiesUpdate[variantId] += quantity;
+        }
+        const productId = orderItem.product;
+        if (!productTotalSalesUpdate[productId]) {
+            productTotalSalesUpdate[productId] = quantity;
+        } else {
+            productTotalSalesUpdate[productId] += quantity;
+        }
+    }
+    console.log(variantQuantitiesUpdate, productTotalSalesUpdate);
+    console.log(Object.keys(variantQuantitiesUpdate));
+    console.log(Object.keys(productTotalSalesUpdate));
+    const productsRollback = [];
+    const variantsRollback = [];
+    for (const variantId of Object.keys(variantQuantitiesUpdate)) {
+        variantsRollback.push(
+            Variant.findOneAndUpdate({ _id: variantId }, { $inc: { quantity: variantQuantitiesUpdate[variantId] } })
+                .session(session)
+                .lean(),
+        );
+    }
+    for (const productId of Object.keys(productTotalSalesUpdate)) {
+        const quantity = productTotalSalesUpdate[productId];
+        productsRollback.push(
+            Product.findOneAndUpdate({ _id: productId }, { $inc: { totalSales: -quantity, quantity: quantity } })
+                .session(session)
+                .lean(),
+        );
+    }
+    await Promise.all(variantsRollback.concat(productsRollback));
+    // const updateOrderItems = order.orderItems.map(async (orderItem) => {
+    //     await Product.findOneAndUpdate(
+    //         { _id: orderItem.product },
+    //         { $inc: { totalSales: -orderItem.quantity, quantity: +orderItem.quantity } },
+    //     )
+    //         .session(session)
+    //         .lean();
+    //     await Variant.findOneAndUpdate(
+    //         { _id: orderItem.variant },
+    //         { $inc: { quantity: orderItem.quantity } },
+    //         { new: true },
+    //     )
+    //         .session(session)
+    //         .lean();
+    // });
+    // await Promise.all(updateOrderItems);
 };
 
 const cancelDelivery = async (order, session) => {

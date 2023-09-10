@@ -23,6 +23,10 @@ const orderStatus = mongoose.Schema(
     },
 );
 const orderItem = mongoose.Schema({
+    variant: {
+        type: mongoose.Schema.Types.ObjectId,
+        red: 'Variant',
+    },
     product: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
