@@ -85,17 +85,17 @@ const deleteProductInCart = schedule.scheduleJob(`*1440 * * * *`, async () => {
     }
 });
 
-const scheduleCancelUnpaidOrder = (order) => {
+const scheduleCancelExpiredOrder = (order) => {
     schedule.scheduleJob(order.expiredAt, async () => {
-        await OrderService.cancelUnpaidOrder(order);
+        await OrderService.cancelExpiredOrder(order);
     });
 };
 
 //write conflict unhandled
-const scheduleCancelUnpaidOrders =
-    //execute jobs every 5 minutes
+const scheduleCancelExpiredOrders =
+    //execute jobs every 1 minutes
     schedule.scheduleJob('*/1 * * * *', async () => {
-        console.log('Runing scheduleCancelUnpaidOrders');
+        console.log('Runing scheduleCancelExpiredOrders');
         const unpaidOrders = await Order.aggregate([
             { $match: { $and: [{ status: 'placed' }, { expiredAt: { $lte: new Date() } }] } },
             { $lookup: { from: 'payments', localField: 'paymentInformation', foreignField: '_id', as: 'paymentInfo' } },
@@ -117,7 +117,6 @@ const scheduleCancelUnpaidOrders =
                 },
             },
         ]).exec();
-        // console.log(unpaidOrders);
         const cancelTasks = unpaidOrders.map(async (order) => {
             try {
                 await OrderService.cancelUnpaidOrder(order);
@@ -128,15 +127,8 @@ const scheduleCancelUnpaidOrders =
         await Promise.all(cancelTasks);
     });
 
-const scheduleCancelUncofirmedOrder = (order) => {
-    schedule.scheduleJob(order.expiredAt, async () => {
-        await OrderService.cancelUnconfirmedOrder(order);
-    });
-};
-
 const TaskService = {
-    scheduleCancelUnpaidOrder,
-    scheduleCancelUncofirmedOrder,
+    scheduleCancelExpiredOrder,
 };
 
 export default TaskService;

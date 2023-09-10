@@ -501,7 +501,8 @@ const createOrder = async (request, hostUrl, currentUser) => {
         if (isMomoPaymentMethods(newPaymentInformation.paymentMethod)) {
             now.setMinutes(now.getMinutes() + MAX_MINUTES_WAITING_TO_PAY);
         } else {
-            now.setDate(now.getDate() + MAX_DAYS_WAITING_FOR_SHOP_CONFIRMATION);
+            // now.setDate(now.getDate() + MAX_DAYS_WAITING_FOR_SHOP_CONFIRMATION);
+            now.setMinutes(now.getMinutes() + MAX_DAYS_WAITING_FOR_SHOP_CONFIRMATION);
         }
         orderInfor.expiredAt = now;
 
@@ -511,11 +512,7 @@ const createOrder = async (request, hostUrl, currentUser) => {
         }
 
         //schedule job
-        if (isMomoPaymentMethods(newOrder.paymentInformation.paymentMethod)) {
-            TaskService.scheduleCancelUnpaidOrder(newOrder);
-        } else if (newOrder.paymentInformation.paymentMethod == PAYMENT_WITH_CASH) {
-            TaskService.scheduleCancelUncofirmedOrder(newOrder);
-        }
+        TaskService.scheduleCancelExpiredOrder(newOrder);
 
         await session.commitTransaction();
     }, transactionOptions);
@@ -1033,7 +1030,7 @@ const cancelDelivery = async (order, session) => {
     }
 };
 
-const cancelUnpaidOrder = async (order) => {
+const cancelExpiredOrder = async (order) => {
     if (!order) {
         return;
     }
@@ -1044,62 +1041,32 @@ const cancelUnpaidOrder = async (order) => {
         writeConcern: { w: 'majority' },
     };
     await session.withTransaction(async () => {
-        const unpaidOrder = await Order.findOne({
+        const expiredOrder = await Order.findOne({
             _id: order._id,
             status: 'placed',
             expiredAt: { $lte: new Date() },
         }).populate('paymentInformation');
+        if (expiredOrder == null) {
+            return;
+        }
+        let cancelReason;
+        //payment expired
         if (
-            unpaidOrder == null ||
-            unpaidOrder.paymentInformation.paid ||
-            !isMomoPaymentMethods(unpaidOrder.paymentInformation.paymentMethod)
+            !expiredOrder.paymentInformation.paid &&
+            isMomoPaymentMethods(expiredOrder.paymentInformation.paymentMethod)
         ) {
-            return;
+            cancelReason = 'Hết hạn thanh toán';
         }
-        await OrderService.rollbackProductQuantites(unpaidOrder, session);
-        unpaidOrder.status = 'cancelled';
-        unpaidOrder.statusHistory.push({ status: 'cancelled', description: 'Hết hạn thanh toán' });
-        const cancelledOrder = await unpaidOrder.save();
-        if (!cancelledOrder) {
-            await session.abortTransaction();
-            console.error(`Hủy đơn hàng ${unpaidOrder._id} thất bại`);
-        } else {
-            console.log(`Đơn hàng ${unpaidOrder._id} đã bị hủy vì hết hạn thanh toán`);
+        //shop did not response
+        else {
+            cancelReason = 'Shop không phản hồi';
         }
-    }, transactionOptions);
-    await session.endSession();
-};
-
-const cancelUnconfirmedOrder = async (order) => {
-    if (!order) {
-        return;
-    }
-    const session = await mongoose.startSession();
-    const transactionOptions = {
-        readPreference: 'primary',
-        readConcern: { level: 'local' },
-        writeConcern: { w: 'majority' },
-    };
-    await session.withTransaction(async () => {
-        const unconfirmedOrder = await Order.findOne({
-            _id: order._id,
-            status: 'placed',
-            expiredAt: { $lte: new Date() },
-        }).populate('paymentInformation');
-        if (unconfirmedOrder == null || unconfirmedOrder.paymentInformation.paymentMethod != PAYMENT_WITH_CASH) {
-            return;
-        }
-        await OrderService.rollbackProductQuantites(unconfirmedOrder, session);
-        await OrderService.refundOrderInCancel(unconfirmedOrder, session);
-        unconfirmedOrder.status = 'cancelled';
-        unconfirmedOrder.statusHistory.push({ status: 'cancelled', description: 'Shop không phản hồi' });
-        const cancelledOrder = await unconfirmedOrder.save();
-        if (!cancelledOrder) {
-            await session.abortTransaction();
-            console.error(`Hủy đơn hàng ${unconfirmedOrder._id} thất bại`);
-        } else {
-            console.log(`Đơn hàng ${unconfirmedOrder._id} đã bị hủy vì Shop không phản hồi`);
-        }
+        await OrderService.rollbackProductQuantites(expiredOrder, session);
+        expiredOrder.status = 'cancelled';
+        expiredOrder.statusHistory.push({ status: 'cancelled', description: cancelReason });
+        const cancelledOrder = await expiredOrder.save();
+        await OrderService.refundOrderInCancel(cancelledOrder, session);
+        console.log(`Đơn hàng ${expiredOrder._id} đã bị hủy vì ${cancelReason.toLowerCase()}`);
     }, transactionOptions);
     await session.endSession();
 };
@@ -1129,8 +1096,7 @@ const OrderService = {
     refundOrderInCancel,
     rollbackProductQuantites,
     cancelDelivery,
-    cancelUnpaidOrder,
-    cancelUnconfirmedOrder,
+    cancelExpiredOrder,
 };
 
 export default OrderService;
