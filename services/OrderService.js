@@ -761,15 +761,15 @@ const orderPaymentNotification = async (ipnRequest) => {
         await session.endSession();
         return null;
     }
-    if (order.status != 'cancelled') {
-        order.statusHistory.push({ status: 'paid', updateBy: order.user });
-    }
     order.paymentInformation.transId = ipnRequest.transId;
     order.paymentInformation.paid = true;
     order.paymentInformation.paidAt = new Date();
     order.paymentInformation.status = { state: 'paid', description: 'Đã thanh toán' };
     await order.paymentInformation.save();
-    order.expiredAt = null;
+    order.statusHistory.push({ status: 'paid', updateBy: order.user });
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + MAX_DAYS_WAITING_FOR_SHOP_CONFIRMATION);
+    order.expiredAt = now;
     await order.save();
     return null;
 };
