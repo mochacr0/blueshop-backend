@@ -8,7 +8,7 @@ import Cart from '../models/cart.model.js';
 import Order from '../models/order.model.js';
 import OrderService from './OrderService.js';
 import mongoose from 'mongoose';
-import { PAYMENT_WITH_CASH, PAYMENT_WITH_MOMO } from '../utils/paymentConstants.js';
+import { PAYMENT_WITH_CASH } from '../utils/paymentConstants.js';
 
 export const deleteExpiredTokens = schedule.scheduleJob(`*/60 * * * *`, async () => {
     console.log('delete expired tokens .....................................................');
@@ -83,77 +83,13 @@ const deleteProductInCart = schedule.scheduleJob(`*1440 * * * *`, async () => {
 
 const scheduleCancelUnpaidOrder = (order) => {
     schedule.scheduleJob(order.expiredAt, async () => {
-        const session = await mongoose.startSession();
-        const transactionOptions = {
-            readPreference: 'primary',
-            readConcern: { level: 'local' },
-            writeConcern: { w: 'majority' },
-        };
-        try {
-            const unpaidOrder = await Order.findOne({
-                _id: order._id,
-                status: 'placed',
-                expiredAt: { $lte: new Date() },
-            }).populate('paymentInformation');
-            if (
-                unpaidOrder == null ||
-                unpaidOrder.paymentInformation.paid ||
-                unpaidOrder.paymentInformation.paymentMethod != PAYMENT_WITH_MOMO
-            ) {
-                return;
-            }
-            await OrderService.rollbackProductQuantites(unpaidOrder, session);
-            await OrderService.refundOrderInCancel(unpaidOrder, session);
-            unpaidOrder.status = 'cancelled';
-            unpaidOrder.statusHistory.push({ status: 'cancelled', description: 'Hết hạn thanh toán' });
-            const cancelledOrder = await unpaidOrder.save();
-            if (!cancelledOrder) {
-                await session.abortTransaction();
-                console.error(`Hủy đơn hàng ${unpaidOrder._id} thất bại`);
-            } else {
-                console.log(`Đơn hàng ${unpaidOrder._id} đã bị hủy vì hết hạn thanh toán`);
-            }
-        } catch (error) {
-            throw new Error(error);
-        } finally {
-            await session.endSession();
-        }
+        await OrderService.cancelUnpaidOrder(order);
     });
 };
 
 const scheduleCancelUncofirmedOrder = (order) => {
     schedule.scheduleJob(order.expiredAt, async () => {
-        const session = await mongoose.startSession();
-        const transactionOptions = {
-            readPreference: 'primary',
-            readConcern: { level: 'local' },
-            writeConcern: { w: 'majority' },
-        };
-        try {
-            const unpaidOrder = await Order.findOne({
-                _id: order._id,
-                status: 'placed',
-                expiredAt: { $lte: new Date() },
-            }).populate('paymentInformation');
-            if (unpaidOrder == null || unpaidOrder.paymentInformation.paymentMethod != PAYMENT_WITH_CASH) {
-                return;
-            }
-            await OrderService.rollbackProductQuantites(unpaidOrder, session);
-            await OrderService.refundOrderInCancel(unpaidOrder, session);
-            unpaidOrder.status = 'cancelled';
-            unpaidOrder.statusHistory.push({ status: 'cancelled', description: 'Shop không phản hồi' });
-            const cancelledOrder = await unpaidOrder.save();
-            if (!cancelledOrder) {
-                await session.abortTransaction();
-                console.error(`Hủy đơn hàng ${unpaidOrder._id} thất bại`);
-            } else {
-                console.log(`Đơn hàng ${unpaidOrder._id} đã bị hủy vì Shop không phản hồi`);
-            }
-        } catch (error) {
-            throw new Error(error);
-        } finally {
-            await session.endSession();
-        }
+        await OrderService.cancelUnconfirmedOrder(order);
     });
 };
 

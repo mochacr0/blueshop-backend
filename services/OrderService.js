@@ -1031,6 +1031,78 @@ const cancelDelivery = async (order, session) => {
     }
 };
 
+const cancelUnpaidOrder = async (order) => {
+    if (!order) {
+        return;
+    }
+    const session = await mongoose.startSession();
+    const transactionOptions = {
+        readPreference: 'primary',
+        readConcern: { level: 'local' },
+        writeConcern: { w: 'majority' },
+    };
+    await session.withTransaction(async () => {
+        const unpaidOrder = await Order.findOne({
+            _id: order._id,
+            status: 'placed',
+            expiredAt: { $lte: new Date() },
+        }).populate('paymentInformation');
+        if (
+            unpaidOrder == null ||
+            unpaidOrder.paymentInformation.paid ||
+            unpaidOrder.paymentInformation.paymentMethod != PAYMENT_WITH_MOMO
+        ) {
+            return;
+        }
+        await OrderService.rollbackProductQuantites(unpaidOrder, session);
+        await OrderService.refundOrderInCancel(unpaidOrder, session);
+        unpaidOrder.status = 'cancelled';
+        unpaidOrder.statusHistory.push({ status: 'cancelled', description: 'Hết hạn thanh toán' });
+        const cancelledOrder = await unpaidOrder.save();
+        if (!cancelledOrder) {
+            await session.abortTransaction();
+            console.error(`Hủy đơn hàng ${unpaidOrder._id} thất bại`);
+        } else {
+            console.log(`Đơn hàng ${unpaidOrder._id} đã bị hủy vì hết hạn thanh toán`);
+        }
+    }, transactionOptions);
+    await session.endSession();
+};
+
+const cancelUnconfirmedOrder = async (order) => {
+    if (!order) {
+        return;
+    }
+    const session = await mongoose.startSession();
+    const transactionOptions = {
+        readPreference: 'primary',
+        readConcern: { level: 'local' },
+        writeConcern: { w: 'majority' },
+    };
+    await session.withTransaction(async () => {
+        const unpaidOrder = await Order.findOne({
+            _id: order._id,
+            status: 'placed',
+            expiredAt: { $lte: new Date() },
+        }).populate('paymentInformation');
+        if (unpaidOrder == null || unpaidOrder.paymentInformation.paymentMethod != PAYMENT_WITH_CASH) {
+            return;
+        }
+        await OrderService.rollbackProductQuantites(unpaidOrder, session);
+        await OrderService.refundOrderInCancel(unpaidOrder, session);
+        unpaidOrder.status = 'cancelled';
+        unpaidOrder.statusHistory.push({ status: 'cancelled', description: 'Shop không phản hồi' });
+        const cancelledOrder = await unpaidOrder.save();
+        if (!cancelledOrder) {
+            await session.abortTransaction();
+            console.error(`Hủy đơn hàng ${unpaidOrder._id} thất bại`);
+        } else {
+            console.log(`Đơn hàng ${unpaidOrder._id} đã bị hủy vì Shop không phản hồi`);
+        }
+    }, transactionOptions);
+    await session.endSession();
+};
+
 const isMomoPaymentMethods = (paymentMethod) => {
     return (
         paymentMethod == PAYMENT_WITH_MOMO ||
@@ -1056,6 +1128,8 @@ const OrderService = {
     refundOrderInCancel,
     rollbackProductQuantites,
     cancelDelivery,
+    cancelUnpaidOrder,
+    cancelUnconfirmedOrder,
 };
 
 export default OrderService;
