@@ -21,14 +21,19 @@ app.use(express.json());
 app.use(cors());
 app.use(morgan('dev'));
 app.enable('trust proxy');
-//handle route for api v1.0
-routes(app);
 
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // parse application/json
 app.use(bodyParser.json());
+
+//handle route for api v1.0
+routes(app);
+
+app.get('/', (req, res) => {
+    res.json('Hello World');
+});
 
 // swagger;
 const __filename = fileURLToPath(import.meta.url);

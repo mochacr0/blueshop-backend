@@ -194,7 +194,6 @@ UserController.get(
     '/login/oauth2/code/google',
     passport.authenticate('google', { session: false }),
     (req, res, next) => {
-        console.log(req);
         res.redirect(
             `${getClientUrl()}?accessToken=${req.user.accessToken}&refreshToken=${req.user.refreshToken}&expiresIn=${
                 req.user.expiresIn

@@ -43,8 +43,7 @@ const autoConfirmOrder = schedule.scheduleJob(`*/1440 * * * *`, async () => {
         status: 'delivered',
         statusHistory: { $elemMatch: { status: 'delivered', createdAt: { $lte: expired } } },
     });
-    console.log(findOrder);
-    const updateOrder = await Order.updateMany(
+    await Order.updateMany(
         {
             status: 'delivered',
             statusHistory: { $elemMatch: { status: 'delivered', createdAt: { $lte: expired } } },
@@ -101,7 +100,6 @@ const scheduleCancelUnpaidOrder = (order) => {
                 unpaidOrder.paymentInformation.paid ||
                 unpaidOrder.paymentInformation.paymentMethod != PAYMENT_WITH_MOMO
             ) {
-                console.log('not found');
                 return;
             }
             await OrderService.rollbackProductQuantites(unpaidOrder, session);
