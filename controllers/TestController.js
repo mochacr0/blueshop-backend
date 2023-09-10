@@ -12,6 +12,8 @@ import Variant from '../models/variant.model.js';
 import natural from 'natural';
 import { createPaymentBody } from '../utils/payment-with-momo.js';
 import axios from 'axios';
+import Order from '../models/order.model.js';
+import OrderService from '../services/OrderService.js';
 /* dotenv.config();
 
 cloudinary.config({
@@ -27,9 +29,23 @@ const multerUpload = multer({}); */
 
 const TestController = express.Router();
 
-TestController.get('/test', (req, res) => {
-    const url = new URL(`${req.protocol}://${req.get('host')}`);
-    res.json(url);
+TestController.get('/test', async (req, res) => {
+    const unpaidOrders = await Order.aggregate([
+        { $match: { $and: [{ status: 'placed' }, { expiredAt: { $lte: new Date() } }] } },
+        { $lookup: { from: 'payments', localField: 'paymentInformation', foreignField: '_id', as: 'paymentInfo' } },
+        { $unwind: '$paymentInfo' },
+        { $match: { $and: [{ 'paymentInfo.paid': false }, { 'paymentInfo.paymentMethod': '2' }] } },
+    ]).exec();
+    const cancelTasks = unpaidOrders.map(async (order) => {
+        try {
+            await OrderService.cancelUnpaidOrder(order);
+        } catch (error) {
+            console.log(error);
+            console.error(`Hủy đơn hàng ${order._id} thất bại. Lỗi: ${error.message}`);
+        }
+    });
+    await Promise.all(cancelTasks);
+    res.json('done');
 });
 
 TestController.post(

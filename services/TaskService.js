@@ -1,14 +1,12 @@
-import schedule, { scheduleJob } from 'node-schedule';
-import Token from '../models/token.model.js';
-import Product from '../models/product.model.js';
-import Variant from '../models/variant.model.js';
-import DiscountCode from '../models/discountCode.model.js';
-import User from '../models/user.model.js';
+import schedule from 'node-schedule';
 import Cart from '../models/cart.model.js';
+import DiscountCode from '../models/discountCode.model.js';
 import Order from '../models/order.model.js';
+import Product from '../models/product.model.js';
+import Token from '../models/token.model.js';
+import User from '../models/user.model.js';
+import Variant from '../models/variant.model.js';
 import OrderService from './OrderService.js';
-import mongoose from 'mongoose';
-import { PAYMENT_WITH_CASH } from '../utils/paymentConstants.js';
 
 export const deleteExpiredTokens = schedule.scheduleJob(`*/60 * * * *`, async () => {
     console.log('delete expired tokens .....................................................');
@@ -86,6 +84,27 @@ const scheduleCancelUnpaidOrder = (order) => {
         await OrderService.cancelUnpaidOrder(order);
     });
 };
+
+//write conflict unhandled
+const scheduleCancelUnpaidOrders =
+    //execute jobs every 5 minutes
+    schedule.scheduleJob('*/5 * * * *', async () => {
+        console.log('Runing scheduleCancelUnpaidOrders');
+        const unpaidOrders = await Order.aggregate([
+            { $match: { $and: [{ status: 'placed' }, { expiredAt: { $lte: new Date() } }] } },
+            { $lookup: { from: 'payments', localField: 'paymentInformation', foreignField: '_id', as: 'paymentInfo' } },
+            { $unwind: '$paymentInfo' },
+            { $match: { $and: [{ 'paymentInfo.paid': false }, { 'paymentInfo.paymentMethod': '2' }] } },
+        ]).exec();
+        const cancelTasks = unpaidOrders.map(async (order) => {
+            try {
+                await OrderService.cancelUnpaidOrder(order);
+            } catch (error) {
+                console.error(`Hủy đơn hàng ${order._id} thất bại. Lỗi: ${error.message}`);
+            }
+        });
+        await Promise.all(cancelTasks);
+    });
 
 const scheduleCancelUncofirmedOrder = (order) => {
     schedule.scheduleJob(order.expiredAt, async () => {

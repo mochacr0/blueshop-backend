@@ -805,7 +805,7 @@ const getOrderPaymentStatus = async (req, res) => {
 };
 
 const refundOrderInCancel = async (paymentInformation) => {
-    if (!isMomoPaymentMethods(paymentInformation.paymentMethod)) {
+    if (!(isMomoPaymentMethods(paymentInformation.paymentMethod) && paymentInformation.paid)) {
         return;
     }
     //Create payment information with momo
@@ -1055,7 +1055,6 @@ const cancelUnpaidOrder = async (order) => {
             return;
         }
         await OrderService.rollbackProductQuantites(unpaidOrder, session);
-        await OrderService.refundOrderInCancel(unpaidOrder, session);
         unpaidOrder.status = 'cancelled';
         unpaidOrder.statusHistory.push({ status: 'cancelled', description: 'Hết hạn thanh toán' });
         const cancelledOrder = await unpaidOrder.save();
@@ -1080,24 +1079,24 @@ const cancelUnconfirmedOrder = async (order) => {
         writeConcern: { w: 'majority' },
     };
     await session.withTransaction(async () => {
-        const unpaidOrder = await Order.findOne({
+        const unconfirmedOrder = await Order.findOne({
             _id: order._id,
             status: 'placed',
             expiredAt: { $lte: new Date() },
         }).populate('paymentInformation');
-        if (unpaidOrder == null || unpaidOrder.paymentInformation.paymentMethod != PAYMENT_WITH_CASH) {
+        if (unconfirmedOrder == null || unconfirmedOrder.paymentInformation.paymentMethod != PAYMENT_WITH_CASH) {
             return;
         }
-        await OrderService.rollbackProductQuantites(unpaidOrder, session);
-        await OrderService.refundOrderInCancel(unpaidOrder, session);
-        unpaidOrder.status = 'cancelled';
-        unpaidOrder.statusHistory.push({ status: 'cancelled', description: 'Shop không phản hồi' });
-        const cancelledOrder = await unpaidOrder.save();
+        await OrderService.rollbackProductQuantites(unconfirmedOrder, session);
+        await OrderService.refundOrderInCancel(unconfirmedOrder, session);
+        unconfirmedOrder.status = 'cancelled';
+        unconfirmedOrder.statusHistory.push({ status: 'cancelled', description: 'Shop không phản hồi' });
+        const cancelledOrder = await unconfirmedOrder.save();
         if (!cancelledOrder) {
             await session.abortTransaction();
-            console.error(`Hủy đơn hàng ${unpaidOrder._id} thất bại`);
+            console.error(`Hủy đơn hàng ${unconfirmedOrder._id} thất bại`);
         } else {
-            console.log(`Đơn hàng ${unpaidOrder._id} đã bị hủy vì Shop không phản hồi`);
+            console.log(`Đơn hàng ${unconfirmedOrder._id} đã bị hủy vì Shop không phản hồi`);
         }
     }, transactionOptions);
     await session.endSession();
