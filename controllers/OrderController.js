@@ -93,6 +93,30 @@ OrderController.post(
     }),
 );
 
+OrderController.get(
+    '/:id/payment-notification',
+    validate.validateOrderId,
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const ipnRequest = {
+            orderId: req.query.orderId,
+            requestId: req.query.requestId,
+            amount: req.query.amount,
+            transId: req.query.transId,
+            resultCode: req.query.resultCode,
+            message: req.query.message,
+            responseTime: req.query.responseTime,
+            extraData: req.query.extraData,
+            signature: req.query.signature,
+            orderType: req.query.orderType,
+            payType: req.query.payType,
+        };
+        await OrderService.orderPaymentNotification(ipnRequest);
+        res.status(204);
+        res.json(null);
+    }),
+);
+
 OrderController.patch(
     '/:id/confirm',
     validate.validateOrderId,
