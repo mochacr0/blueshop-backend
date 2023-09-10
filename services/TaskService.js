@@ -91,17 +91,28 @@ const scheduleCancelExpiredOrder = (order) => {
     });
 };
 
-//write conflict unhandled
 const scheduleCancelExpiredOrders =
     //execute jobs every 1 minutes
     schedule.scheduleJob('*/1 * * * *', async () => {
         console.log('Runing scheduleCancelExpiredOrders');
         const expiredOrders = await Order.find({ status: 'placed', expiredAt: { $lte: new Date() } });
         const cancelTasks = expiredOrders.map(async (order) => {
-            try {
-                await OrderService.cancelExpiredOrder(order);
-            } catch (error) {
-                console.error(`Hủy đơn hàng ${order._id} thất bại. Lỗi: ${error.message}`);
+            let attempt = 1;
+            while (attempt <= 3) {
+                try {
+                    await OrderService.cancelExpiredOrder(order);
+                    break;
+                } catch (error) {
+                    console.error(`Hủy đơn hàng ${order._id} thất bại. Lỗi: ${error.message}`);
+                    if (
+                        error.hasOwnProperty('errorLabels') &&
+                        error.errorLabels.includes('TransientTransactionError')
+                    ) {
+                        attempt++;
+                        await new Promise((resolve) => setTimeout(resolve, 1000));
+                        continue;
+                    }
+                }
             }
         });
         await Promise.all(cancelTasks);

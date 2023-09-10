@@ -514,7 +514,7 @@ const createOrder = async (request, hostUrl, currentUser) => {
         }
 
         //schedule job
-        TaskService.scheduleCancelExpiredOrder(newOrder);
+        // TaskService.scheduleCancelExpiredOrder(newOrder);
 
         await session.commitTransaction();
     }, transactionOptions);
@@ -1007,9 +1007,6 @@ const rollbackProductQuantites = async (order, session) => {
             productTotalSalesUpdate[productId] += quantity;
         }
     }
-    console.log(variantQuantitiesUpdate, productTotalSalesUpdate);
-    console.log(Object.keys(variantQuantitiesUpdate));
-    console.log(Object.keys(productTotalSalesUpdate));
     const productsRollback = [];
     const variantsRollback = [];
     for (const variantId of Object.keys(variantQuantitiesUpdate)) {
