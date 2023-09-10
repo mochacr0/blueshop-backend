@@ -447,7 +447,6 @@ const createOrder = async (request, hostUrl, currentUser) => {
             //Create payment information with momo
             const amount = Number(orderInfor.totalPayment).toFixed();
             const ipnUrl = `${hostUrl}/api/v1/orders/${orderInfor._id}/payment-notification`;
-            console.log(ipnUrl);
             const redirectUrl = `${getClientUrl()}/order/${orderInfor._id}/waiting-payment`;
             // const ipnUrl = `http://localhost:5000/api/v1/orders/${orderInfor._id}/payment-notification`;
             // const redirectUrl = ipnUrl;
@@ -475,7 +474,6 @@ const createOrder = async (request, hostUrl, currentUser) => {
                     newPaymentInformation.requestId = requestId;
                 })
                 .catch(async (error) => {
-                    console.log(error.response);
                     throw new InvalidDataError(error.response?.message || error.message);
                 });
         } else if (newPaymentInformation.paymentMethod != PAYMENT_WITH_CASH) {
@@ -832,7 +830,6 @@ const refundOrderInCancel = async (paymentInformation) => {
             await paymentInformation.save();
         })
         .catch(async (error) => {
-            console.log(error);
             throw new InternalServerError(error.response?.message || error.message);
         });
 };
@@ -864,7 +861,6 @@ const refundTrans = async (req, res) => {
             res.json(response.data);
         })
         .catch(async (error) => {
-            console.log(error);
             throw new InternalServerError(error.response?.message || error.message);
         });
 };
