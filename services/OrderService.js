@@ -443,6 +443,8 @@ const createOrder = async (request, hostUrl, currentUser) => {
         });
         newPaymentInformation.paymentMethod = request.paymentMethod;
 
+        console.log(newPaymentInformation.paymentMethod);
+
         if (isMomoPaymentMethods(newPaymentInformation.paymentMethod)) {
             //Create payment information with momo
             const amount = Number(orderInfor.totalPayment).toFixed();
@@ -1050,7 +1052,7 @@ const cancelUnpaidOrder = async (order) => {
         if (
             unpaidOrder == null ||
             unpaidOrder.paymentInformation.paid ||
-            unpaidOrder.paymentInformation.paymentMethod != PAYMENT_WITH_MOMO
+            !isMomoPaymentMethods(unpaidOrder.paymentInformation.paymentMethod)
         ) {
             return;
         }

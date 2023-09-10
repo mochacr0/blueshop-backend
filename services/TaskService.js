@@ -7,6 +7,12 @@ import Token from '../models/token.model.js';
 import User from '../models/user.model.js';
 import Variant from '../models/variant.model.js';
 import OrderService from './OrderService.js';
+import {
+    PAYMENT_WITH_CASH,
+    PAYMENT_WITH_MOMO,
+    PAYMENT_WITH_ATM,
+    PAYMENT_WITH_CREDIT_CARD,
+} from '../utils/paymentConstants.js';
 
 export const deleteExpiredTokens = schedule.scheduleJob(`*/60 * * * *`, async () => {
     console.log('delete expired tokens .....................................................');
@@ -88,14 +94,30 @@ const scheduleCancelUnpaidOrder = (order) => {
 //write conflict unhandled
 const scheduleCancelUnpaidOrders =
     //execute jobs every 5 minutes
-    schedule.scheduleJob('*/5 * * * *', async () => {
+    schedule.scheduleJob('*/1 * * * *', async () => {
         console.log('Runing scheduleCancelUnpaidOrders');
         const unpaidOrders = await Order.aggregate([
             { $match: { $and: [{ status: 'placed' }, { expiredAt: { $lte: new Date() } }] } },
             { $lookup: { from: 'payments', localField: 'paymentInformation', foreignField: '_id', as: 'paymentInfo' } },
             { $unwind: '$paymentInfo' },
-            { $match: { $and: [{ 'paymentInfo.paid': false }, { 'paymentInfo.paymentMethod': '2' }] } },
+            {
+                $match: {
+                    $and: [
+                        { 'paymentInfo.paid': false },
+                        {
+                            'paymentInfo.paymentMethod': {
+                                $in: [
+                                    PAYMENT_WITH_MOMO.toString(),
+                                    PAYMENT_WITH_ATM.toString(),
+                                    PAYMENT_WITH_CREDIT_CARD.toString(),
+                                ],
+                            },
+                        },
+                    ],
+                },
+            },
         ]).exec();
+        // console.log(unpaidOrders);
         const cancelTasks = unpaidOrders.map(async (order) => {
             try {
                 await OrderService.cancelUnpaidOrder(order);
