@@ -20,6 +20,7 @@ app.use(express.static('public'));
 app.use(express.json());
 app.use(cors());
 app.use(morgan('dev'));
+app.enable('trust proxy');
 //handle route for api v1.0
 routes(app);
 
