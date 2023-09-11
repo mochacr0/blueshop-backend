@@ -189,6 +189,19 @@ OrderController.patch(
         res.json(await OrderService.adminPaymentOrder(orderId, req.user));
     }),
 );
-OrderController.patch('/:id/cancel', validate.validateOrderId, protect, asyncHandler(OrderService.cancelOrder));
+
+OrderController.patch(
+    '/:id/cancel',
+    validate.validateOrderId,
+    protect,
+    asyncHandler(async (req, res) => {
+        validateRequest(req);
+        const orderId = req.params.id || '';
+        const cancelOrderRequest = {
+            description: req.body.description?.toString()?.trim() || '',
+        };
+        res.json(await OrderService.cancelOrder(orderId, cancelOrderRequest, req.user));
+    }),
+);
 
 export default OrderController;

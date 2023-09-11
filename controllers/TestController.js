@@ -30,22 +30,11 @@ const multerUpload = multer({}); */
 const TestController = express.Router();
 
 TestController.get('/test', async (req, res) => {
-    const unpaidOrders = await Order.aggregate([
-        { $match: { $and: [{ status: 'placed' }, { expiredAt: { $lte: new Date() } }] } },
-        { $lookup: { from: 'payments', localField: 'paymentInformation', foreignField: '_id', as: 'paymentInfo' } },
-        { $unwind: '$paymentInfo' },
-        { $match: { $and: [{ 'paymentInfo.paid': false }, { 'paymentInfo.paymentMethod': '2' }] } },
-    ]).exec();
-    const cancelTasks = unpaidOrders.map(async (order) => {
-        try {
-            await OrderService.cancelUnpaidOrder(order);
-        } catch (error) {
-            console.log(error);
-            console.error(`Hủy đơn hàng ${order._id} thất bại. Lỗi: ${error.message}`);
-        }
-    });
-    await Promise.all(cancelTasks);
-    res.json('done');
+    const order = await Order.findOne({ _id: '64FE417251DA2AB3755B1AE3' });
+    if (order) {
+        console.log(order.expiredAt < new Date());
+    }
+    res.json(order);
 });
 
 TestController.post(

@@ -513,9 +513,6 @@ const createOrder = async (request, hostUrl, currentUser) => {
             throw new InternalServerError('Xảy ra lỗi trong quá trình tạo đơn hàng');
         }
 
-        //schedule job
-        TaskService.scheduleCancelExpiredOrder(newOrder);
-
         await session.commitTransaction();
     }, transactionOptions);
     return newOrder;
@@ -540,6 +537,9 @@ const confirmOrder = async (orderId, request, currentUser) => {
             throw new InvalidDataError('Đơn hàng đã bị hủy');
         default:
             break;
+    }
+    if (order.expiredAt < new Date()) {
+        throw new InvalidDataError('Đơn hàng đã hết hạn');
     }
     order.statusHistory.push({ status: 'confirm', description: request.description, updateBy: currentUser._id });
     order.status = 'confirm';
@@ -917,21 +917,13 @@ const adminPaymentOrder = async (orderId, currentUser) => {
     return deliveredOrder;
 };
 
-const cancelOrder = async (req, res, next) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        throw new InvalidDataError(message);
-    }
-    const orderId = req.params.id || '';
-    const description = req.body.description?.toString()?.trim() || '';
+const cancelOrder = async (orderId, request, currentUser) => {
     const order = await Order.findOne({ _id: orderId }).populate('delivery').populate('paymentInformation');
 
     if (!order) {
         throw new ItemNotFoundError('Đơn hàng không tồn tại');
     }
-    if (req.user.role == 'admin' || req.user.role == 'staff') {
+    if (current.role == 'admin' || current.role == 'staff') {
         switch (order.status) {
             case 'delivered':
                 throw new InvalidDataError('Đơn hàng đã được giao thành công. Không thể hủy đơn hàng');
@@ -942,7 +934,7 @@ const cancelOrder = async (req, res, next) => {
             default:
                 break;
         }
-    } else if (req.user._id.toString() == order.user.toString()) {
+    } else if (currentUser._id.toString() == order.user.toString()) {
         switch (order.status) {
             // case 'confirm':
             //     res.status(400);
@@ -967,26 +959,20 @@ const cancelOrder = async (req, res, next) => {
         readConcern: { level: 'local' },
         writeConcern: { w: 'majority' },
     };
-    try {
-        await session.withTransaction(async () => {
-            await rollbackProductQuantites(order, session);
-            await cancelDelivery(order, session);
-            await refundOrderInCancel(order.paymentInformation);
-            //update order status
-            order.status = 'cancelled';
-            order.statusHistory.push({ status: 'cancelled', description: description });
-            const cancelledOrder = await order.save();
-            if (!cancelledOrder) {
-                await session.abortTransaction();
-                throw new InternalServerError('Gặp lỗi khi hủy đơn hàng');
-            }
-            res.json({ message: 'Hủy đơn hàng thành công' });
-        }, transactionOptions);
-    } catch (error) {
-        next(error);
-    } finally {
-        await session.endSession();
-    }
+    await session.withTransaction(async () => {
+        await rollbackProductQuantites(order, session);
+        await cancelDelivery(order, session);
+        await refundOrderInCancel(order.paymentInformation);
+        //update order status
+        order.status = 'cancelled';
+        order.statusHistory.push({ status: 'cancelled', description: request.description });
+        const cancelledOrder = await order.save();
+        if (!cancelledOrder) {
+            throw new InternalServerError('Gặp lỗi khi hủy đơn hàng');
+        }
+    }, transactionOptions);
+    await session.endSession();
+    res.json('Hủy đơn hàng thành công');
 };
 
 const rollbackProductQuantites = async (order, session) => {
