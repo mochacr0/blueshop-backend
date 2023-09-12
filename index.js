@@ -1,20 +1,18 @@
-import express from 'express';
-import dotenv from 'dotenv';
-import cors from 'cors';
-import morgan from 'morgan';
-import YAML from 'yamljs';
-import swaggerUiExpress from 'swagger-ui-express';
-import connectDatabase from './config/db.config.js';
-import { errorHandler, notFound } from './middleware/error.middleware.js';
 import bodyParser from 'body-parser';
-import { fileURLToPath } from 'url';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import express from 'express';
+import morgan from 'morgan';
 import path from 'path';
+import swaggerUiExpress from 'swagger-ui-express';
+import { fileURLToPath } from 'url';
+import YAML from 'yamljs';
+import connectDatabase from './config/db.config.js';
 import routes from './controllers/index.js';
-import multer from 'multer';
-// import logger from './utils/logger.js';
+import { errorHandler, notFound } from './middleware/error.middleware.js';
+import OrderService from './services/OrderService.js';
 
 dotenv.config();
-connectDatabase();
 const app = express();
 app.use(express.static('public'));
 app.use(express.json());
@@ -59,4 +57,8 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 1000;
 
-app.listen(PORT, console.log(`Server run in port ${PORT}`));
+app.listen(PORT, async () => {
+    console.log(`Server run in port ${PORT}`);
+    await connectDatabase();
+    await OrderService.cancelExpiredOrdersOnStarup();
+});

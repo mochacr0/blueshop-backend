@@ -1,6 +1,15 @@
-const MAX_MINUTES_WAITING_TO_PAY = 10;
+const MAX_MINUTES_WAITING_TO_PAY = 1;
 const MAX_DAYS_WAITING_FOR_SHOP_CONFIRMATION = 1;
 const ORDER_MOMO_TRANSACTION_EXPIRY_TIME_IN_MINUTE = MAX_MINUTES_WAITING_TO_PAY;
+const ORDER_STATUS = {
+    PLACED: 'placed',
+    WAITING_TO_CONFIRM: 'confirm',
+    DELIVERING: 'delivering',
+    DELIVERED: 'delivered',
+    CANCELLED: 'cancelled',
+    COMPLETED: 'completed',
+    PAID: 'paid',
+};
 
 export {
     MAX_MINUTES_WAITING_TO_PAY,

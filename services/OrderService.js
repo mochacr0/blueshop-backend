@@ -1,5 +1,4 @@
 import crypto from 'crypto';
-import { validationResult } from 'express-validator';
 import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import Cart from '../models/cart.model.js';
@@ -19,7 +18,7 @@ import {
     UnprocessableContentError,
 } from '../utils/errors.js';
 import statusResponseFalse from '../utils/messageMoMo.js';
-import { MAX_DAYS_WAITING_FOR_SHOP_CONFIRMATION, MAX_MINUTES_WAITING_TO_PAY } from '../utils/orderConstants.js';
+import { MAX_MINUTES_WAITING_TO_PAY, MAX_DAYS_WAITING_FOR_SHOP_CONFIRMATION } from '../utils/orderConstants.js';
 import { createCheckStatusBody, createPaymentBody, createRefundTransBody } from '../utils/payment-with-momo.js';
 import {
     PAYMENT_WITH_ATM,
@@ -513,6 +512,8 @@ const createOrder = async (request, hostUrl, currentUser) => {
             throw new InternalServerError('Xảy ra lỗi trong quá trình tạo đơn hàng');
         }
 
+        TaskService.scheduleCancelExpiredOrder(newOrder);
+
         await session.commitTransaction();
     }, transactionOptions);
     return newOrder;
@@ -714,30 +715,18 @@ const validateIpnSignature = (order, ipnRequest) => {
 };
 
 const orderPaymentNotification = async (ipnRequest) => {
-    //validate
-    if (!ipnRequest.orderId) {
-        throw new InvalidDataError('Mã đơn hàng là giá trị bắt buộc');
-    }
-    const order = await Order.findOne({ _id: ipnRequest.orderId, disabled: false }).populate('paymentInformation');
+    let order = await Order.findOne({ _id: ipnRequest.orderId, disabled: false }).populate('paymentInformation');
     if (!order) {
         throw new UnprocessableContentError('Đơn hàng không tồn tại!');
     }
-    if (order.status == 'cancelled' || order.status == 'delivered' || order.status == 'completed') {
-        throw new InvalidDataError('Đơn hàng đã hoàn thành hoặc bị hủy');
+    validateIpnSignature(order, ipnRequest);
+    if (order.status == 'cancelled') {
+        throw new InvalidDataError('Đơn hàng đã bị hủy');
     }
     if (order.paymentInformation.paid) {
         throw new InvalidDataError('Đơn hàng đã được thanh toán');
     }
-    if (
-        order.paymentInformation?.requestId?.toString() != ipnRequest.requestId?.toString() ||
-        Number(order.paymentInformation.paymentAmount) != Number(ipnRequest.amount)
-    ) {
-        throw new InvalidDataError('Thông tin xác nhận thanh toán không hợp lệ');
-    }
-
-    validateIpnSignature(order, ipnRequest);
-
-    if (ipnRequest.resultCode != 0 && order.status == 'placed') {
+    if (ipnRequest.resultCode != 0) {
         const message = statusResponseFalse[ipnRequest.resultCode] || statusResponseFalse[99];
         console.error(message);
         //cancle order
@@ -763,6 +752,16 @@ const orderPaymentNotification = async (ipnRequest) => {
         await session.endSession();
         return null;
     }
+    //payment succeed, order is expired but not be cancelled due to cron job doesn't run as expected
+    if (order.expiredAt < new Date()) {
+        //cancel
+        if (!order.paymentInformation.transId) {
+            await getOrderPaymentStatus(order._id);
+            await order.populate('paymentInformation');
+        }
+        await cancelExpiredOrder(order);
+        return null;
+    }
     order.paymentInformation.transId = ipnRequest.transId;
     order.paymentInformation.paid = true;
     order.paymentInformation.paidAt = new Date();
@@ -777,8 +776,7 @@ const orderPaymentNotification = async (ipnRequest) => {
     return null;
 };
 
-const getOrderPaymentStatus = async (req, res) => {
-    const orderId = req.params.id;
+const getOrderPaymentStatus = async (orderId) => {
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate('paymentInformation');
     if (!order) {
         throw new ItemNotFoundError('Đơn hàng không tồn tại!');
@@ -791,23 +789,24 @@ const getOrderPaymentStatus = async (req, res) => {
             'Content-Length': Buffer.byteLength(requestBody),
         },
     };
-    await momo_Request
-        .post('/query', requestBody, config)
-        .then((response) => {
-            if (response.data.resultCode == 0) {
-                order.paymentInformation.refundTrans = response.data.refundTrans || [];
-                order.paymentInformation.transId = response.data.transId || null;
-                order.paymentInformation.save();
-            }
-            res.json(response.data);
-        })
-        .catch(async (error) => {
-            throw new InternalServerError(error.response?.message || error.message);
-        });
+    let response;
+    try {
+        response = await momo_Request.post('/query', requestBody, config);
+    } catch (error) {
+        throw new InternalServerError(error.response?.message || error.message);
+    }
+    if (response.data.resultCode == 0) {
+        order.paymentInformation.refundTrans = response.data.refundTrans || [];
+        order.paymentInformation.transId = response.data.transId || null;
+        order.paymentInformation.paid = true;
+        const savedPayment = await order.paymentInformation.save();
+        return savedPayment;
+    }
 };
 
 const refundOrderInCancel = async (paymentInformation) => {
     if (!(isMomoPaymentMethods(paymentInformation.paymentMethod) && paymentInformation.paid)) {
+        console.log('return không refund');
         return;
     }
     //Create payment information with momo
@@ -830,6 +829,7 @@ const refundOrderInCancel = async (paymentInformation) => {
         .then(async (response) => {
             paymentInformation.status = { state: 'refunded', description: 'Hoàn tiền thành công' };
             await paymentInformation.save();
+            console.log('done refund');
         })
         .catch(async (error) => {
             throw new InternalServerError(error.response?.message || error.message);
@@ -923,7 +923,7 @@ const cancelOrder = async (orderId, request, currentUser) => {
     if (!order) {
         throw new ItemNotFoundError('Đơn hàng không tồn tại');
     }
-    if (current.role == 'admin' || current.role == 'staff') {
+    if (currentUser.role == 'admin' || currentUser.role == 'staff') {
         switch (order.status) {
             case 'delivered':
                 throw new InvalidDataError('Đơn hàng đã được giao thành công. Không thể hủy đơn hàng');
@@ -972,7 +972,7 @@ const cancelOrder = async (orderId, request, currentUser) => {
         }
     }, transactionOptions);
     await session.endSession();
-    res.json('Hủy đơn hàng thành công');
+    return 'Hủy đơn hàng thành công';
 };
 
 const rollbackProductQuantites = async (order, session) => {
@@ -1089,10 +1089,35 @@ const cancelExpiredOrder = async (order) => {
         expiredOrder.status = 'cancelled';
         expiredOrder.statusHistory.push({ status: 'cancelled', description: cancelReason });
         const cancelledOrder = await expiredOrder.save();
-        await OrderService.refundOrderInCancel(cancelledOrder.paymentInformation, session);
+        await OrderService.refundOrderInCancel(cancelledOrder.paymentInformation);
         console.log(`Đơn hàng ${expiredOrder._id} đã bị hủy vì ${cancelReason.toLowerCase()}`);
     }, transactionOptions);
     await session.endSession();
+};
+
+const cancelExpiredOrderWithRetry = async (order, retry) => {
+    let attempt = 1;
+    while (attempt <= retry) {
+        try {
+            await OrderService.cancelExpiredOrder(order);
+            break;
+        } catch (error) {
+            console.error(`Hủy đơn hàng ${order._id} lần thứ ${attempt} thất bại. Lỗi: ${error.message}`);
+            if (error.hasOwnProperty('errorLabels') && error.errorLabels.includes('TransientTransactionError')) {
+                attempt++;
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+            } else {
+                break;
+            }
+        }
+    }
+};
+
+const cancelExpiredOrdersOnStarup = async () => {
+    console.log('Running OrderService cancelExpiredOrdersOnStarup');
+    const expiredOrders = await Order.find({ status: 'placed', expiredAt: { $lte: new Date() } });
+    const cancelTasks = expiredOrders.map((order) => cancelExpiredOrderWithRetry(order, 3));
+    await Promise.all(cancelTasks);
 };
 
 const isMomoPaymentMethods = (paymentMethod) => {
@@ -1121,6 +1146,7 @@ const OrderService = {
     rollbackProductQuantites,
     cancelDelivery,
     cancelExpiredOrder,
+    cancelExpiredOrdersOnStarup,
 };
 
 export default OrderService;
