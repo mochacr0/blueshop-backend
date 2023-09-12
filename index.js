@@ -13,7 +13,7 @@ import { errorHandler, notFound } from './middleware/error.middleware.js';
 import OrderService from './services/OrderService.js';
 
 dotenv.config();
-connectDatabase();
+// connectDatabase();
 const app = express();
 app.use(express.static('public'));
 app.use(express.json());
@@ -60,6 +60,6 @@ const PORT = process.env.PORT || 1000;
 
 app.listen(PORT, async () => {
     console.log(`Server run in port ${PORT}`);
-    // await connectDatabase();
-    // await OrderService.cancelExpiredOrdersOnStarup();
+    await connectDatabase();
+    await OrderService.cancelExpiredOrdersOnStarup();
 });
