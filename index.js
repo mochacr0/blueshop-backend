@@ -60,5 +60,5 @@ const PORT = process.env.PORT || 1000;
 app.listen(PORT, async () => {
     console.log(`Server run in port ${PORT}`);
     await connectDatabase();
-    await OrderService.cancelExpiredOrdersOnStarup();
+    // await OrderService.cancelExpiredOrdersOnStarup();
 });
