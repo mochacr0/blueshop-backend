@@ -64,7 +64,7 @@ VoucherController.post(
             applyFor: req.body.applyFor,
             applicableProducts: req.body.applicableProducts,
         };
-        VoucherService.createDiscountCode(createVoucherRequest);
+        res.json(await VoucherService.createDiscountCode(createVoucherRequest));
     }),
 );
 
