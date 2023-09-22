@@ -23,6 +23,10 @@ const orderStatus = mongoose.Schema(
     },
 );
 const orderItem = mongoose.Schema({
+    variant: {
+        type: mongoose.Schema.Types.ObjectId,
+        red: 'Variant',
+    },
     product: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
@@ -113,6 +117,9 @@ const orderSchema = mongoose.Schema(
         updatedVersion: {
             type: Number,
             default: 0,
+        },
+        expiredAt: {
+            type: Date,
         },
     },
     {

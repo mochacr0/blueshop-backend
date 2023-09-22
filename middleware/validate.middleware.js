@@ -1,5 +1,11 @@
 import { body, check, validationResult } from 'express-validator';
 import { ObjectId } from 'mongodb';
+import {
+    PAYMENT_WITH_CASH,
+    PAYMENT_WITH_MOMO,
+    PAYMENT_WITH_ATM,
+    PAYMENT_WITH_CREDIT_CARD,
+} from '../utils/paymentConstants.js';
 
 const validate = {
     //====================Validate Banner==================
@@ -778,7 +784,12 @@ const validate = {
             if (!paymentMethod || paymentMethod.toString().trim() == '') {
                 throw new Error('Phương thức thanh toán là giá trị bắt buộc');
             }
-            if (paymentMethod !== 1 && paymentMethod !== 2) {
+            if (
+                paymentMethod !== PAYMENT_WITH_CASH &&
+                paymentMethod !== PAYMENT_WITH_MOMO &&
+                paymentMethod !== PAYMENT_WITH_ATM &&
+                paymentMethod !== PAYMENT_WITH_CREDIT_CARD
+            ) {
                 throw new Error(' Phương thức thanh toán không hợp lệ');
             }
             return true;

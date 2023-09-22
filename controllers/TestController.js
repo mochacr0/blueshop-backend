@@ -12,22 +12,32 @@ import Variant from '../models/variant.model.js';
 import natural from 'natural';
 import { createPaymentBody } from '../utils/payment-with-momo.js';
 import axios from 'axios';
+import Order from '../models/order.model.js';
+import OrderService from '../services/OrderService.js';
 /* dotenv.config();
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
-}); 
+});
 
 const multerUpload = multer({}); */
 
 //cloudinary = cloudinary.v2;
 //const upload = multer();
 
-const testRouter = express.Router();
+const TestController = express.Router();
 
-testRouter.post(
+TestController.get('/test', async (req, res) => {
+    const order = await Order.findOne({ _id: '64FE417251DA2AB3755B1AE3' });
+    if (order) {
+        console.log(order.expiredAt < new Date());
+    }
+    res.json(order);
+});
+
+TestController.post(
     '/natural',
     asyncHandler(async (req, res) => {
         const text = req.body.text || '';
@@ -40,7 +50,7 @@ testRouter.post(
     }),
 );
 
-testRouter.post(
+TestController.post(
     '/payment',
     asyncHandler(async (req, res, next) => {
         const requestBody = createPaymentBody('order-id', '100000', 'https://localhost:3000', 'https://localhost:3000');
@@ -57,7 +67,7 @@ testRouter.post(
     }),
 );
 
-testRouter.post(
+TestController.post(
     '/send-mail',
     asyncHandler(async (req, res, next) => {
         const messageOptions = {
@@ -74,7 +84,7 @@ testRouter.post(
     }),
 );
 
-testRouter.get('/cron-job', (req, res) => {
+TestController.get('/cron-job', (req, res) => {
     const expiredTime = 2;
     let now = Date.now().toString();
     const scheduledJob = schedule.scheduleJob(now, `*/${expiredTime} * * * * *`, () => {
@@ -90,17 +100,17 @@ testRouter.get('/cron-job', (req, res) => {
     res.json('Job started');
 });
 
-testRouter.get('/verify-email/', (req, res) => {
+TestController.get('/verify-email/', (req, res) => {
     res.status(200);
     res.json('Here you go');
 });
 
-testRouter.get('/', (req, res) => {
+TestController.get('/', (req, res) => {
     res.status(200);
     res.json('Test router');
 });
 
-testRouter.get(
+TestController.get(
     '/exception',
     asyncHandler(async (req, res) => {
         someFunction();
@@ -108,7 +118,7 @@ testRouter.get(
 );
 
 //Create new cart - Not use
-testRouter.post(
+TestController.post(
     '/create-cart',
     asyncHandler(async (req, res) => {
         const newCart = await Cart.create({
@@ -120,7 +130,7 @@ testRouter.post(
     }),
 );
 
-testRouter.post(
+TestController.post(
     '/upload',
     multerUpload.single('image'),
     asyncHandler(async (req, res) => {
@@ -142,7 +152,7 @@ testRouter.post(
     }),
 );
 
-testRouter.delete(
+TestController.delete(
     '/image/:id',
     asyncHandler(async (req, res) => {
         const publicId = req.params.id;
@@ -151,7 +161,7 @@ testRouter.delete(
     }),
 );
 
-testRouter.get(
+TestController.get(
     '/populated/:_id',
     asyncHandler(async (req, res) => {
         const product = await Product.findById(req.params._id).populate('variants');
@@ -168,12 +178,12 @@ const someFunction = function () {
     throw new Error('Check this error');
 };
 
-testRouter.get('/test-findLastIndex', (req, res) => {
+TestController.get('/test-findLastIndex', (req, res) => {
     const arr = [1, 2, 3];
     console.log(arr.findLastIndex((element) => element == 3));
 });
 
-testRouter.get(
+TestController.get(
     '/document/:id',
     asyncHandler(async (req, res) => {
         const variant = await Variant.findOne({ product: req.params.id });
@@ -186,7 +196,7 @@ testRouter.get(
     }),
 );
 
-testRouter.post(
+TestController.post(
     '/upload/multi',
     multerUpload.array('image', 10),
     asyncHandler(async (req, res) => {
@@ -214,4 +224,4 @@ testRouter.post(
     }),
 );
 
-export default testRouter;
+export default TestController;

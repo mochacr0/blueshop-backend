@@ -1,4 +1,6 @@
-import image from '../assets/images/index.js';
+import image from '../../assets/images/index.js';
+import { getClientUrl } from '../../utils/urlUtils.js';
+
 export const htmlMailVerify = (
     emailVerificationToken,
 ) => ` <table width="100%" height="100%" cellpadding="0" cellspacing="0" bgcolor="#f5f6f7">
@@ -70,23 +72,23 @@ export const htmlMailVerify = (
                                                         >
                                                             Xác minh Email
                                                         </h4>
-                                                        <div 
+                                                        <div
                                                             style="display: flex; justify-content: center !important; margin: 36px 0px; "
                                                         >
-                                                            <div 
+                                                            <div
                                                             style="
                                                                 text-align: center;
                                                                 width: 100%;
-                                                                display: flex; 
+                                                                display: flex;
                                                                 justify-content: center
                                                             "
-                                                            > 
-                                                            
+                                                            >
+
                                                                 <img
                                                                     src=${image.email}
                                                                     width= 100%
-                                                                    // height=557px 
-                                        
+                                                                    // height=557px
+
                                                                     tabindex="0"
                                                                 />
                                                             </div>
@@ -96,14 +98,14 @@ export const htmlMailVerify = (
                                                                 <tr>
                                                                     <td align="center">
                                                                         <a
-                                                                            href="${process.env.CLIENT_PAGE_URL}/register/confirm?emailVerificationToken=${emailVerificationToken}"
+                                                                            href="${getClientUrl()}/register/confirm?emailVerificationToken=${emailVerificationToken}"
                                                                             style="
                                                                                 display: inline-block;
                                                                                 text-decoration: none;
                                                                                 width: 159px;
                                                                             "
                                                                             target="_blank"
-                                                                            data-saferedirecturl="${process.env.CLIENT_PAGE_URL}/register/confirm?emailVerificationToken=${emailVerificationToken}"
+                                                                            data-saferedirecturl="${getClientUrl()}/register/confirm?emailVerificationToken=${emailVerificationToken}"
                                                                             ><div
                                                                                 style="
                                                                                     font-family: Helvetica, Arial,
@@ -145,10 +147,10 @@ export const htmlMailVerify = (
                                                                 >Liên kết này sẽ hết hạn sau 2 giờ. Để yêu cầu một liên kết xác minh<br />
                                                                 khác, vui lòng
                                                                 <a
-                                                                    href="${process.env.CLIENT_PAGE_URL}/login"
+                                                                    href="${getClientUrl()}/login"
                                                                     style="text-decoration: none; color: #007cad"
                                                                     target="_blank"
-                                                                    data-saferedirecturl="${process.env.CLIENT_PAGE_URL}/login"
+                                                                    data-saferedirecturl="${getClientUrl()}/login"
                                                                     >Đăng nhập</a
                                                                 >
                                                                 để nhắc gửi lại liên kết.

@@ -1,7 +1,7 @@
 openapi: 3.0.1
 info:
-    title: Fashion Shop API
-    description: 'This is a Backend API of Fashion Shop'
+    title: BlueShop API
+    description: 'This is a Backend API of BlueShop'
     termsOfService: https://api.fashionshop.nkt2001.tech/terms/
     contact:
         email: ktuan439@gmail.com
