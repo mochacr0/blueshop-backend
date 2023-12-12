@@ -21,6 +21,8 @@ BlueShop is already deployed, with the backend hosted on Render and the frontend
 |    URL   | [shop-frontend-user.vercel.app](https://shop-frontend-user.vercel.app/) | [shop-frontend-admin.vercel.app](https://shop-frontend-admin.vercel.app/) |
 |   Email  | `nthai2001cr@gmail.com` | `mochacr0@gmail.com` |
 | Password |        `String1`        |       `String1`      |
+> [!NOTE]
+> Please be patient during the initial load, as the free hosting plan may cause some delay.
 
 ## Screenshots
 **Admin dashboard**
