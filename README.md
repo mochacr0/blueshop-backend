@@ -17,7 +17,7 @@ BlueShop is a fashion e-commerce website, developed using the MERN stack.
 BlueShop is already deployed, with the backend hosted on Render and the frontend on Vercel. Explore this website using the following accounts:
 
 |          |       Client (User)    | Management (Admin) |
-| -------- | ---------------------- | ---------------------- | 
+| :------: | :--------------------: | :-------------------: | 
 |    URL   | [shop-frontend-user.vercel.app](https://shop-frontend-user.vercel.app/) | [shop-frontend-admin.vercel.app](https://shop-frontend-admin.vercel.app/) |
 |   Email  | `nthai2001cr@gmail.com` | `mochacr0@gmail.com` |
 | Password |        `String1`        |       `String1`      |
