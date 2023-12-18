@@ -27,28 +27,28 @@ BlueShop is already deployed, with the backend hosted on Render and the frontend
 ## Screenshots
 **Admin dashboard**
 
-![Screenshot 2023-12-12 121417](https://github.com/mochacr0/readme-tutorial/assets/64319905/79988769-d008-4be0-b1ef-34522a6ba6dc)
+![Admin dashboard](./assets/images/admin-dashboard.png)
 
 **Product management**
 
-![Screenshot 2023-12-12 121559](https://github.com/mochacr0/readme-tutorial/assets/64319905/48222e16-3ce0-4337-bd96-4b51930f0fa2)
+![Product management](./assets/images/product-management.png)
 
 **Homepage**
 
-![Screenshot 2023-12-12 121654](https://github.com/mochacr0/readme-tutorial/assets/64319905/6f9fa98e-4e86-4b46-b501-cf34404f4a61)
+![Homepage](./assets/images/homepage.png)
 
 **Product searching**
 
-![Screenshot 2023-12-12 121801](https://github.com/mochacr0/readme-tutorial/assets/64319905/e59a8fdb-ec5a-4a76-afbc-0287ff13038e)
+![Product searching](./assets/images/product-searching.png)
 
 **Product details**
 
-![Screenshot 2023-12-12 122017](https://github.com/mochacr0/readme-tutorial/assets/64319905/08c246c0-33dc-4a9e-9321-3efb2cafd3a1)
+![Product details](./assets/images/product-details.png)
 
 **Place order**
 
-![Screenshot 2023-12-12 121831](https://github.com/mochacr0/readme-tutorial/assets/64319905/a0a3937f-0325-498f-9bb3-67c5e779c792)
+![Place order](./assets/images/place-order.png)
 
 **Order history**
 
-![Screenshot 2023-12-12 121831](https://github.com/mochacr0/readme-tutorial/assets/64319905/5f583eb6-65c2-4e86-bc0e-660522cc4bb3)
+![Order history](./assets/images/order-history.png)
