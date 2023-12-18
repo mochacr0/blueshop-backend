@@ -11,7 +11,7 @@ BlueShop is a fashion e-commerce website, developed using the MERN stack.
 - Momo Wallet
 
 ## Architecture
-![Architecture](https://github.com/mochacr0/readme-tutorial/assets/64319905/a17c0c3b-6b38-4257-9dc1-d3614c8f7736)
+![Architecture](./assets/images/architecture.png)
 
 ## Demo
 BlueShop is already deployed, with the backend hosted on Render and the frontend on Vercel. Explore this website using the following accounts:
